@@ -17,6 +17,9 @@ export default function RootLayout({
       <body className="min-h-full flex flex-col">
         <Nav />
         <main className="flex-1 w-full">{children}</main>
+        <footer className="w-full text-center text-xs text-zinc-500 py-4">
+          Created by Dhruv Patil
+        </footer>
       </body>
     </html>
   );
