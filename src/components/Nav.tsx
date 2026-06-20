@@ -43,6 +43,7 @@ export default function Nav() {
           {loaded && user ? (
             <>
               <span className="text-zinc-500">Hi, {user.display_name}</span>
+              <Link href="/account">Account</Link>
               <button onClick={logout} className="underline">
                 Log out
               </button>
