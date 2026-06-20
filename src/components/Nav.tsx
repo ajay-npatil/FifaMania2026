@@ -37,6 +37,7 @@ export default function Nav() {
         </Link>
         <div className="flex items-center gap-4 text-sm">
           <Link href="/predictions">Predictions</Link>
+          <Link href="/results">Results</Link>
           <Link href="/leaderboard">Leaderboard</Link>
           {loaded && user?.is_admin && <Link href="/admin">Admin</Link>}
           {loaded && user ? (

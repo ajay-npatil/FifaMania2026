@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import ScoringRules from "@/components/ScoringRules";
 
 interface Match {
   id: string;
@@ -25,9 +26,10 @@ export default function PredictionsPage() {
   const [matches, setMatches] = useState<Match[]>([]);
   const [predictions, setPredictions] = useState<Record<string, Prediction>>({});
   const [draft, setDraft] = useState<Record<string, { home: string; away: string }>>({});
-  const [savingId, setSavingId] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [now, setNow] = useState(() => Date.now());
 
   async function load() {
     const res = await fetch("/api/predictions");
@@ -48,58 +50,118 @@ export default function PredictionsPage() {
     void load();
   }, []);
 
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(id);
+  }, []);
+
+  function lockTime(kickoff_at: string) {
+    return new Date(kickoff_at).getTime() - LOCK_MINUTES * 60 * 1000;
+  }
+
   function isLocked(kickoff_at: string) {
-    // eslint-disable-next-line react-hooks/purity -- intentional: lock state is time-based
-    return Date.now() >= new Date(kickoff_at).getTime() - LOCK_MINUTES * 60 * 1000;
+    return now >= lockTime(kickoff_at);
   }
 
-  async function save(matchId: string) {
-    const d = draft[matchId];
-    if (!d || d.home === "" || d.away === "") return;
-    setSavingId(matchId);
-    setMessage(null);
-    const res = await fetch("/api/predictions", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        match_id: matchId,
-        predicted_home_score: Number(d.home),
-        predicted_away_score: Number(d.away),
-      }),
-    });
-    const data = await res.json();
-    setSavingId(null);
-    if (!res.ok) {
-      setMessage(data.error ?? "Could not save prediction.");
-      return;
-    }
-    await load();
-    setMessage("Saved!");
+  function timeLeftLabel(kickoff_at: string) {
+    const ms = lockTime(kickoff_at) - now;
+    if (ms <= 0) return null;
+    const totalSeconds = Math.floor(ms / 1000);
+    const days = Math.floor(totalSeconds / 86400);
+    const hours = Math.floor((totalSeconds % 86400) / 3600);
+    const minutes = Math.floor((totalSeconds % 3600) / 60);
+    const seconds = totalSeconds % 60;
+    if (days > 0) return `${days}d ${hours}h left to predict`;
+    if (hours > 0) return `${hours}h ${minutes}m left to predict`;
+    if (minutes > 0) return `${minutes}m ${seconds}s left to predict`;
+    return `${seconds}s left to predict`;
   }
 
-  const sorted = useMemo(
-    () => [...matches].sort((a, b) => +new Date(a.kickoff_at) - +new Date(b.kickoff_at)),
+  // Only show matches that haven't finished yet — completed matches move to
+  // the Results page instead.
+  const upcoming = useMemo(
+    () =>
+      [...matches]
+        .filter((m) => m.status !== "FINISHED")
+        .sort((a, b) => +new Date(a.kickoff_at) - +new Date(b.kickoff_at)),
     [matches]
   );
+
+  async function saveAll() {
+    setSaving(true);
+    setMessage(null);
+
+    const toSave = upcoming.filter((m) => {
+      if (isLocked(m.kickoff_at)) return false;
+      const d = draft[m.id];
+      return d && d.home !== "" && d.away !== "";
+    });
+
+    if (toSave.length === 0) {
+      setSaving(false);
+      setMessage("Nothing to save.");
+      return;
+    }
+
+    const results = await Promise.all(
+      toSave.map((m) => {
+        const d = draft[m.id];
+        return fetch("/api/predictions", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            match_id: m.id,
+            predicted_home_score: Number(d.home),
+            predicted_away_score: Number(d.away),
+          }),
+        }).then(async (res) => ({ res, ok: res.ok, m, data: await res.json() }));
+      })
+    );
+
+    setSaving(false);
+    const failed = results.filter((r) => !r.ok);
+    await load();
+
+    if (failed.length === 0) {
+      setMessage(`Saved ${results.length} prediction${results.length === 1 ? "" : "s"}.`);
+    } else {
+      setMessage(
+        `Saved ${results.length - failed.length} of ${results.length}. ${failed
+          .map((f) => `${f.m.home_team} vs ${f.m.away_team}: ${f.data.error ?? "error"}`)
+          .join(" ")}`
+      );
+    }
+  }
 
   if (loading) return <p className="max-w-3xl mx-auto px-4 py-10">Loading...</p>;
 
   return (
     <div className="max-w-3xl mx-auto px-4 py-10">
       <h1 className="text-2xl font-bold mb-2">Your predictions</h1>
-      <p className="text-sm text-zinc-500 mb-6">
+      <p className="text-sm text-zinc-500 mb-4">
         Predictions lock {LOCK_MINUTES} minutes before kickoff. Once locked, they can&apos;t be changed.
+        Enter scores for as many matches as you like, then save them all at once.
       </p>
+
+      <ScoringRules />
+
       {message && <p className="mb-4 text-sm">{message}</p>}
-      {sorted.length === 0 && (
+
+      {upcoming.length === 0 && (
         <p className="text-sm text-zinc-500">
-          No matches yet. An admin needs to sync fixtures from the Admin page.
+          No upcoming matches. Check the{" "}
+          <a href="/results" className="underline">
+            Results
+          </a>{" "}
+          page for finished matches, or an admin may need to sync fixtures.
         </p>
       )}
+
       <div className="flex flex-col gap-3">
-        {sorted.map((m) => {
+        {upcoming.map((m) => {
           const existing = predictions[m.id];
           const locked = isLocked(m.kickoff_at);
+          const countdown = !locked ? timeLeftLabel(m.kickoff_at) : null;
           const d = draft[m.id] ?? {
             home: existing ? String(existing.predicted_home_score) : "",
             away: existing ? String(existing.predicted_away_score) : "",
@@ -115,9 +177,13 @@ export default function PredictionsPage() {
                 </p>
                 <p className="text-xs text-zinc-500">
                   {new Date(m.kickoff_at).toLocaleString()} · {m.status}
-                  {m.status === "FINISHED" && ` · Final: ${m.home_score}-${m.away_score}`}
-                  {existing?.points_awarded != null && ` · You scored ${existing.points_awarded} pts`}
+                  {locked && !existing && " · Locked (no prediction submitted)"}
                 </p>
+                {countdown && (
+                  <p className="text-xs font-medium text-amber-600 dark:text-amber-400 mt-0.5">
+                    ⏱ {countdown}
+                  </p>
+                )}
               </div>
               <div className="flex items-center gap-2">
                 <input
@@ -141,18 +207,24 @@ export default function PredictionsPage() {
                     setDraft((s) => ({ ...s, [m.id]: { ...d, away: e.target.value } }))
                   }
                 />
-                <button
-                  onClick={() => save(m.id)}
-                  disabled={locked || savingId === m.id}
-                  className="rounded-full bg-foreground text-background px-4 py-1.5 text-xs font-medium disabled:opacity-40"
-                >
-                  {locked ? "Locked" : savingId === m.id ? "Saving..." : "Save"}
-                </button>
+                {locked && <span className="text-xs text-zinc-500">Locked</span>}
               </div>
             </div>
           );
         })}
       </div>
+
+      {upcoming.length > 0 && (
+        <div className="mt-6 flex justify-end">
+          <button
+            onClick={saveAll}
+            disabled={saving}
+            className="rounded-full bg-foreground text-background px-6 py-2.5 text-sm font-medium disabled:opacity-50"
+          >
+            {saving ? "Saving..." : "Save all predictions"}
+          </button>
+        </div>
+      )}
     </div>
   );
 }
