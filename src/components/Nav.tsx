@@ -30,7 +30,7 @@ export default function Nav() {
   }
 
   return (
-    <nav className="w-full border-b border-zinc-200 dark:border-zinc-800">
+    <nav className="w-full border-b border-zinc-200 dark:border-zinc-800 bg-background/80 backdrop-blur-sm sticky top-0 z-10">
       <div className="max-w-3xl mx-auto flex items-center justify-between px-4 py-3">
         <Link href="/" className="font-semibold text-lg">
           <span className="text-accent">⚽</span> FifaMania

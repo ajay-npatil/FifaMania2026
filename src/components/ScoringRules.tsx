@@ -13,7 +13,7 @@ const RULES: { scenario: string; points: number }[] = [
 
 export default function ScoringRules() {
   return (
-    <details className="mb-6 border border-zinc-200 dark:border-zinc-800 rounded-lg p-4">
+    <details className="mb-6 border border-zinc-200 dark:border-zinc-800 rounded-lg p-4 bg-background/70 backdrop-blur-sm">
       <summary className="cursor-pointer font-medium text-sm text-accent">
         How points are scored
       </summary>

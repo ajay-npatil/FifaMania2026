@@ -28,7 +28,24 @@
 }
 
 body {
-  background: var(--background);
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
+  min-height: 100vh;
+  /* Stadium-floodlight backdrop: soft teal glows in the corners (like
+     stadium lights) over faint pitch markings, fading to the plain
+     background colour behind the actual content so text stays readable. */
+  background-color: var(--background);
+  background-image:
+    radial-gradient(ellipse 60% 40% at 8% -10%, color-mix(in srgb, var(--accent) 32%, transparent), transparent 60%),
+    radial-gradient(ellipse 60% 40% at 92% 0%, color-mix(in srgb, var(--accent) 22%, transparent), transparent 60%),
+    radial-gradient(ellipse 80% 50% at 50% 110%, color-mix(in srgb, var(--accent) 14%, transparent), transparent 65%),
+    repeating-linear-gradient(
+      90deg,
+      color-mix(in srgb, var(--foreground) 4%, transparent) 0px,
+      color-mix(in srgb, var(--foreground) 4%, transparent) 1px,
+      transparent 1px,
+      transparent 96px
+    );
+  background-attachment: fixed;
+  background-size: cover;
 }

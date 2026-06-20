@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import AllPredictions from "@/components/AllPredictions";
+import { flagFor } from "@/lib/flags";
 
 interface Match {
   id: string;
@@ -81,12 +82,12 @@ export default function ResultsPage() {
           return (
             <div
               key={m.id}
-              className="border border-zinc-200 dark:border-zinc-800 rounded-lg p-4"
+              className="border border-zinc-200 dark:border-zinc-800 rounded-lg p-4 bg-background/70 backdrop-blur-sm"
             >
               <div className="flex items-center justify-between gap-4">
                 <div>
                   <p className="font-medium">
-                    {m.home_team} vs {m.away_team}
+                    {m.home_team} {flagFor(m.home_team)} vs {m.away_team} {flagFor(m.away_team)}
                   </p>
                   <p className="text-xs text-zinc-500">
                     {new Date(m.kickoff_at).toLocaleDateString()}
