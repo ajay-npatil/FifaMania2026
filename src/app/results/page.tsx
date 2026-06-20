@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import AllPredictions from "@/components/AllPredictions";
 
 interface Match {
   id: string;
@@ -80,37 +81,40 @@ export default function ResultsPage() {
           return (
             <div
               key={m.id}
-              className="border border-zinc-200 dark:border-zinc-800 rounded-lg p-4 flex items-center justify-between gap-4"
+              className="border border-zinc-200 dark:border-zinc-800 rounded-lg p-4"
             >
-              <div>
-                <p className="font-medium">
-                  {m.home_team} vs {m.away_team}
-                </p>
-                <p className="text-xs text-zinc-500">
-                  {new Date(m.kickoff_at).toLocaleDateString()}
-                </p>
-              </div>
+              <div className="flex items-center justify-between gap-4">
+                <div>
+                  <p className="font-medium">
+                    {m.home_team} vs {m.away_team}
+                  </p>
+                  <p className="text-xs text-zinc-500">
+                    {new Date(m.kickoff_at).toLocaleDateString()}
+                  </p>
+                </div>
 
-              <div className="flex items-center gap-6 text-sm">
-                <div className="text-center">
-                  <p className="text-xs text-zinc-500">Your prediction</p>
-                  <p className="font-medium">
-                    {p ? `${p.predicted_home_score} - ${p.predicted_away_score}` : "—"}
-                  </p>
-                </div>
-                <div className="text-center">
-                  <p className="text-xs text-zinc-500">Actual result</p>
-                  <p className="font-medium">
-                    {m.home_score} - {m.away_score}
-                  </p>
-                </div>
-                <div className="text-center">
-                  <p className="text-xs text-zinc-500">Points</p>
-                  <p className="font-semibold">
-                    {p ? p.points_awarded ?? "pending" : "—"}
-                  </p>
+                <div className="flex items-center gap-6 text-sm">
+                  <div className="text-center">
+                    <p className="text-xs text-zinc-500">Your prediction</p>
+                    <p className="font-medium">
+                      {p ? `${p.predicted_home_score} - ${p.predicted_away_score}` : "—"}
+                    </p>
+                  </div>
+                  <div className="text-center">
+                    <p className="text-xs text-zinc-500">Actual result</p>
+                    <p className="font-medium">
+                      {m.home_score} - {m.away_score}
+                    </p>
+                  </div>
+                  <div className="text-center">
+                    <p className="text-xs text-zinc-500">Points</p>
+                    <p className="font-semibold">
+                      {p ? p.points_awarded ?? "pending" : "—"}
+                    </p>
+                  </div>
                 </div>
               </div>
+              <AllPredictions matchId={m.id} />
             </div>
           );
         })}

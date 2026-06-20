@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import ScoringRules from "@/components/ScoringRules";
+import AllPredictions from "@/components/AllPredictions";
 
 interface Match {
   id: string;
@@ -138,9 +139,12 @@ export default function PredictionsPage() {
   return (
     <div className="max-w-3xl mx-auto px-4 py-10">
       <h1 className="text-2xl font-bold mb-2">Your predictions</h1>
-      <p className="text-sm text-zinc-500 mb-4">
+      <p className="text-sm text-zinc-500 mb-1">
         Predictions lock {LOCK_MINUTES} minutes before kickoff. Once locked, they can&apos;t be changed.
         Enter scores for as many matches as you like, then save them all at once.
+      </p>
+      <p className="text-sm font-medium mb-4">
+        ⬇ Scroll down and click &quot;Save all predictions&quot; at the bottom to save what you&apos;ve entered.
       </p>
 
       <ScoringRules />
@@ -170,52 +174,55 @@ export default function PredictionsPage() {
           return (
             <div
               key={m.id}
-              className="border border-zinc-200 dark:border-zinc-800 rounded-lg p-4 flex items-center justify-between gap-4"
+              className="border border-zinc-200 dark:border-zinc-800 rounded-lg p-4"
             >
-              <div>
-                <p className="font-medium">
-                  {m.home_team} vs {m.away_team}
-                </p>
-                <p className="text-xs text-zinc-500">
-                  {new Date(m.kickoff_at).toLocaleString()} · {m.status}
-                  {locked && !existing && " · Locked (no prediction submitted)"}
-                </p>
-                {countdown && (
-                  <p
-                    className={
-                      urgent
-                        ? "text-xs font-medium text-red-600 dark:text-red-400 mt-0.5"
-                        : "text-xs font-medium text-green-600 dark:text-green-400 mt-0.5"
-                    }
-                  >
-                    ⏱ {countdown}
+              <div className="flex items-center justify-between gap-4">
+                <div>
+                  <p className="font-medium">
+                    {m.home_team} vs {m.away_team}
                   </p>
-                )}
+                  <p className="text-xs text-zinc-500">
+                    {new Date(m.kickoff_at).toLocaleString()} · {m.status}
+                    {locked && !existing && " · Locked (no prediction submitted)"}
+                  </p>
+                  {countdown && (
+                    <p
+                      className={
+                        urgent
+                          ? "text-xs font-medium text-red-600 dark:text-red-400 mt-0.5"
+                          : "text-xs font-medium text-green-600 dark:text-green-400 mt-0.5"
+                      }
+                    >
+                      ⏱ {countdown}
+                    </p>
+                  )}
+                </div>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="number"
+                    min={0}
+                    className="w-14 border border-zinc-300 dark:border-zinc-700 rounded-md px-2 py-1 bg-transparent text-center"
+                    value={d.home}
+                    disabled={locked}
+                    onChange={(e) =>
+                      setDraft((s) => ({ ...s, [m.id]: { ...d, home: e.target.value } }))
+                    }
+                  />
+                  <span>-</span>
+                  <input
+                    type="number"
+                    min={0}
+                    className="w-14 border border-zinc-300 dark:border-zinc-700 rounded-md px-2 py-1 bg-transparent text-center"
+                    value={d.away}
+                    disabled={locked}
+                    onChange={(e) =>
+                      setDraft((s) => ({ ...s, [m.id]: { ...d, away: e.target.value } }))
+                    }
+                  />
+                  {locked && <span className="text-xs text-zinc-500">Locked</span>}
+                </div>
               </div>
-              <div className="flex items-center gap-2">
-                <input
-                  type="number"
-                  min={0}
-                  className="w-14 border border-zinc-300 dark:border-zinc-700 rounded-md px-2 py-1 bg-transparent text-center"
-                  value={d.home}
-                  disabled={locked}
-                  onChange={(e) =>
-                    setDraft((s) => ({ ...s, [m.id]: { ...d, home: e.target.value } }))
-                  }
-                />
-                <span>-</span>
-                <input
-                  type="number"
-                  min={0}
-                  className="w-14 border border-zinc-300 dark:border-zinc-700 rounded-md px-2 py-1 bg-transparent text-center"
-                  value={d.away}
-                  disabled={locked}
-                  onChange={(e) =>
-                    setDraft((s) => ({ ...s, [m.id]: { ...d, away: e.target.value } }))
-                  }
-                />
-                {locked && <span className="text-xs text-zinc-500">Locked</span>}
-              </div>
+              {locked && <AllPredictions matchId={m.id} />}
             </div>
           );
         })}
