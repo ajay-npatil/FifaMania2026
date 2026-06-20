@@ -162,6 +162,7 @@ export default function PredictionsPage() {
           const existing = predictions[m.id];
           const locked = isLocked(m.kickoff_at);
           const countdown = !locked ? timeLeftLabel(m.kickoff_at) : null;
+          const urgent = !locked && lockTime(m.kickoff_at) - now <= 60 * 60 * 1000;
           const d = draft[m.id] ?? {
             home: existing ? String(existing.predicted_home_score) : "",
             away: existing ? String(existing.predicted_away_score) : "",
@@ -180,7 +181,13 @@ export default function PredictionsPage() {
                   {locked && !existing && " · Locked (no prediction submitted)"}
                 </p>
                 {countdown && (
-                  <p className="text-xs font-medium text-amber-600 dark:text-amber-400 mt-0.5">
+                  <p
+                    className={
+                      urgent
+                        ? "text-xs font-medium text-red-600 dark:text-red-400 mt-0.5"
+                        : "text-xs font-medium text-green-600 dark:text-green-400 mt-0.5"
+                    }
+                  >
                     ⏱ {countdown}
                   </p>
                 )}
