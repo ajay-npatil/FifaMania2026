@@ -14,7 +14,7 @@ const RULES: { scenario: string; points: number }[] = [
 export default function ScoringRules() {
   return (
     <details className="mb-6 border border-zinc-200 dark:border-zinc-800 rounded-lg p-4">
-      <summary className="cursor-pointer font-medium text-sm">
+      <summary className="cursor-pointer font-medium text-sm text-accent">
         How points are scored
       </summary>
       <table className="w-full mt-3 text-sm">
@@ -28,7 +28,7 @@ export default function ScoringRules() {
           {RULES.map((r) => (
             <tr key={r.scenario} className="border-b border-zinc-100 dark:border-zinc-900">
               <td className="py-1.5 pr-2">{r.scenario}</td>
-              <td className="py-1.5 text-right font-medium">{r.points}</td>
+              <td className="py-1.5 text-right font-medium text-accent">{r.points}</td>
             </tr>
           ))}
         </tbody>

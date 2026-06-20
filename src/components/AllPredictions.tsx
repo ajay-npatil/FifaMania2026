@@ -30,7 +30,7 @@ export default function AllPredictions({ matchId }: { matchId: string }) {
 
   return (
     <details className="mt-2" onToggle={(e) => e.currentTarget.open && load()}>
-      <summary className="cursor-pointer text-xs underline text-zinc-500">
+      <summary className="cursor-pointer text-xs underline text-accent">
         See everyone&apos;s predictions
       </summary>
       <div className="mt-2 text-sm">

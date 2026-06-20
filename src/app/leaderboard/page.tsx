@@ -46,7 +46,9 @@ export default function LeaderboardPage() {
               className="flex items-center justify-between border-b border-zinc-200 dark:border-zinc-800 py-3"
             >
               <span className="flex items-center gap-3">
-                <span className="text-zinc-500 w-6">{i + 1}</span>
+                <span className={i < 3 ? "text-accent font-semibold w-6" : "text-zinc-500 w-6"}>
+                  {i + 1}
+                </span>
                 <span className="font-medium">{r.display_name}</span>
               </span>
               <span className="font-semibold">{r.points} pts</span>
@@ -62,7 +64,7 @@ export default function LeaderboardPage() {
             <p className="font-medium">Sign in to see the leaderboard</p>
             <Link
               href="/login"
-              className="rounded-full bg-foreground text-background px-5 py-2 text-sm font-medium"
+              className="rounded-full bg-accent text-accent-foreground px-5 py-2 text-sm font-medium hover:opacity-90"
             >
               Log in
             </Link>

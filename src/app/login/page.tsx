@@ -37,7 +37,7 @@ export default function LoginPage() {
         <label className="flex flex-col gap-1 text-sm">
           Display name
           <input
-            className="border border-zinc-300 dark:border-zinc-700 rounded-md px-3 py-2 bg-transparent"
+            className="border border-zinc-300 dark:border-zinc-700 rounded-md px-3 py-2 bg-transparent focus:outline-none focus:border-accent"
             value={display_name}
             onChange={(e) => setName(e.target.value)}
             required
@@ -46,7 +46,7 @@ export default function LoginPage() {
         <label className="flex flex-col gap-1 text-sm">
           PIN
           <input
-            className="border border-zinc-300 dark:border-zinc-700 rounded-md px-3 py-2 bg-transparent"
+            className="border border-zinc-300 dark:border-zinc-700 rounded-md px-3 py-2 bg-transparent focus:outline-none focus:border-accent"
             value={pin}
             onChange={(e) => setPin(e.target.value)}
             type="password"
@@ -58,14 +58,14 @@ export default function LoginPage() {
         <button
           type="submit"
           disabled={loading}
-          className="rounded-full bg-foreground text-background px-5 py-2.5 text-sm font-medium disabled:opacity-50"
+          className="rounded-full bg-accent text-accent-foreground px-5 py-2.5 text-sm font-medium hover:opacity-90 disabled:opacity-50"
         >
           {loading ? "Logging in..." : "Log in"}
         </button>
       </form>
       <p className="text-sm mt-4">
         No account yet?{" "}
-        <Link href="/signup" className="underline">
+        <Link href="/signup" className="text-accent underline">
           Sign up
         </Link>
       </p>

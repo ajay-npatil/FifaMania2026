@@ -60,7 +60,7 @@ export default function AccountPage() {
             inputMode="numeric"
             value={currentPin}
             onChange={(e) => setCurrentPin(e.target.value)}
-            className="border border-zinc-300 dark:border-zinc-700 rounded-md px-3 py-2 bg-transparent"
+            className="border border-zinc-300 dark:border-zinc-700 rounded-md px-3 py-2 bg-transparent focus:outline-none focus:border-accent"
             required
           />
         </label>
@@ -72,7 +72,7 @@ export default function AccountPage() {
             inputMode="numeric"
             value={newPin}
             onChange={(e) => setNewPin(e.target.value)}
-            className="border border-zinc-300 dark:border-zinc-700 rounded-md px-3 py-2 bg-transparent"
+            className="border border-zinc-300 dark:border-zinc-700 rounded-md px-3 py-2 bg-transparent focus:outline-none focus:border-accent"
             required
           />
         </label>
@@ -84,7 +84,7 @@ export default function AccountPage() {
             inputMode="numeric"
             value={confirmPin}
             onChange={(e) => setConfirmPin(e.target.value)}
-            className="border border-zinc-300 dark:border-zinc-700 rounded-md px-3 py-2 bg-transparent"
+            className="border border-zinc-300 dark:border-zinc-700 rounded-md px-3 py-2 bg-transparent focus:outline-none focus:border-accent"
             required
           />
         </label>
@@ -95,7 +95,7 @@ export default function AccountPage() {
         <button
           type="submit"
           disabled={saving}
-          className="rounded-full bg-foreground text-background px-5 py-2.5 text-sm font-medium disabled:opacity-50"
+          className="rounded-full bg-accent text-accent-foreground px-5 py-2.5 text-sm font-medium hover:opacity-90 disabled:opacity-50"
         >
           {saving ? "Saving..." : "Change PIN"}
         </button>

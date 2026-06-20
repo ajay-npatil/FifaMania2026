@@ -106,7 +106,7 @@ export default function AdminPage() {
         <button
           onClick={sync}
           disabled={loading}
-          className="rounded-full bg-foreground text-background px-5 py-2.5 text-sm font-medium disabled:opacity-50"
+          className="rounded-full bg-accent text-accent-foreground px-5 py-2.5 text-sm font-medium hover:opacity-90 disabled:opacity-50"
         >
           {loading ? "Syncing..." : "Sync World Cup fixtures"}
         </button>
@@ -145,7 +145,7 @@ export default function AdminPage() {
                   <button
                     onClick={() => resetPin(u)}
                     disabled={resettingId === u.id}
-                    className="text-sm underline disabled:opacity-50"
+                    className="text-sm text-accent underline disabled:opacity-50"
                   >
                     {resettingId === u.id ? "Resetting..." : "Reset PIN"}
                   </button>

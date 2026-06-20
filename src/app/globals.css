@@ -3,11 +3,17 @@
 :root {
   --background: #ffffff;
   --foreground: #171717;
+  /* Single accent colour for the whole app: a muted teal. Calm enough for
+     everyday use, still distinct from the plain black/white/gray UI. */
+  --accent: #0d8a82;
+  --accent-foreground: #ffffff;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
   --font-sans: system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
   --font-mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
 }
@@ -16,6 +22,8 @@
   :root {
     --background: #0a0a0a;
     --foreground: #ededed;
+    --accent: #2dd4bf;
+    --accent-foreground: #062420;
   }
 }
 

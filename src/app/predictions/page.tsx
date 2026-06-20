@@ -143,7 +143,7 @@ export default function PredictionsPage() {
         Predictions lock {LOCK_MINUTES} minutes before kickoff. Once locked, they can&apos;t be changed.
         Enter scores for as many matches as you like, then save them all at once.
       </p>
-      <p className="text-sm font-medium mb-4">
+      <p className="text-sm font-medium text-accent mb-4">
         ⬇ Scroll down and click &quot;Save all predictions&quot; at the bottom to save what you&apos;ve entered.
       </p>
 
@@ -201,7 +201,7 @@ export default function PredictionsPage() {
                   <input
                     type="number"
                     min={0}
-                    className="w-14 border border-zinc-300 dark:border-zinc-700 rounded-md px-2 py-1 bg-transparent text-center"
+                    className="w-14 border border-zinc-300 dark:border-zinc-700 rounded-md px-2 py-1 bg-transparent text-center focus:outline-none focus:border-accent"
                     value={d.home}
                     disabled={locked}
                     onChange={(e) =>
@@ -212,7 +212,7 @@ export default function PredictionsPage() {
                   <input
                     type="number"
                     min={0}
-                    className="w-14 border border-zinc-300 dark:border-zinc-700 rounded-md px-2 py-1 bg-transparent text-center"
+                    className="w-14 border border-zinc-300 dark:border-zinc-700 rounded-md px-2 py-1 bg-transparent text-center focus:outline-none focus:border-accent"
                     value={d.away}
                     disabled={locked}
                     onChange={(e) =>
@@ -233,7 +233,7 @@ export default function PredictionsPage() {
           <button
             onClick={saveAll}
             disabled={saving}
-            className="rounded-full bg-foreground text-background px-6 py-2.5 text-sm font-medium disabled:opacity-50"
+            className="rounded-full bg-accent text-accent-foreground px-6 py-2.5 text-sm font-medium hover:opacity-90 disabled:opacity-50"
           >
             {saving ? "Saving..." : "Save all predictions"}
           </button>

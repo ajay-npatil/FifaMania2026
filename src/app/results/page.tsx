@@ -68,7 +68,7 @@ export default function ResultsPage() {
       <h1 className="text-2xl font-bold mb-2">Your results</h1>
       <p className="text-sm text-zinc-500 mb-6">
         Your prediction vs the actual result for every finished match. Total so far:{" "}
-        <span className="font-semibold text-foreground">{totalPoints} points</span>.
+        <span className="font-semibold text-accent">{totalPoints} points</span>.
       </p>
 
       {finished.length === 0 && (
