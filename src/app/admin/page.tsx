@@ -15,6 +15,7 @@ export default function AdminPage() {
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [usersLoading, setUsersLoading] = useState(true);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [resettingId, setResettingId] = useState<string | null>(null);
   const [userMessage, setUserMessage] = useState<string | null>(null);
 
   async function loadUsers() {
@@ -62,6 +63,34 @@ export default function AdminPage() {
     }
     setUserMessage(`Deleted ${u.display_name} and their predictions.`);
     await loadUsers();
+  }
+
+  async function resetPin(u: AdminUser) {
+    const pin = window.prompt(
+      `Enter a new 4-8 digit PIN for ${u.display_name}:`
+    );
+    if (pin === null) return;
+
+    if (!/^\d{4,8}$/.test(pin)) {
+      setUserMessage("PIN must be 4-8 digits.");
+      return;
+    }
+
+    setResettingId(u.id);
+    setUserMessage(null);
+    const res = await fetch(`/api/admin/users/${u.id}/reset-pin`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ pin }),
+    });
+    const data = await res.json();
+    setResettingId(null);
+
+    if (!res.ok) {
+      setUserMessage(data.error ?? "Failed to reset PIN.");
+      return;
+    }
+    setUserMessage(`PIN reset for ${u.display_name}. Tell them their new PIN.`);
   }
 
   return (
@@ -112,13 +141,22 @@ export default function AdminPage() {
                     Joined {new Date(u.created_at).toLocaleDateString()}
                   </p>
                 </div>
-                <button
-                  onClick={() => deleteUser(u)}
-                  disabled={deletingId === u.id}
-                  className="text-sm text-red-600 dark:text-red-400 underline disabled:opacity-50"
-                >
-                  {deletingId === u.id ? "Deleting..." : "Delete"}
-                </button>
+                <div className="flex items-center gap-4">
+                  <button
+                    onClick={() => resetPin(u)}
+                    disabled={resettingId === u.id}
+                    className="text-sm underline disabled:opacity-50"
+                  >
+                    {resettingId === u.id ? "Resetting..." : "Reset PIN"}
+                  </button>
+                  <button
+                    onClick={() => deleteUser(u)}
+                    disabled={deletingId === u.id}
+                    className="text-sm text-red-600 dark:text-red-400 underline disabled:opacity-50"
+                  >
+                    {deletingId === u.id ? "Deleting..." : "Delete"}
+                  </button>
+                </div>
               </div>
             ))}
             {users.length === 0 && (
