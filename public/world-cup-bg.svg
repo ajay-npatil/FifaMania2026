@@ -1,0 +1,151 @@
+<svg viewBox="0 0 1600 900" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid slice">
+  <defs>
+    <radialGradient id="glowTeal" cx="50%" cy="35%" r="65%">
+      <stop offset="0%" stop-color="#2dd4bf" stop-opacity="0.55"/>
+      <stop offset="55%" stop-color="#0d8a82" stop-opacity="0.18"/>
+      <stop offset="100%" stop-color="#0d8a82" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="cornerGlowL" cx="0%" cy="0%" r="70%">
+      <stop offset="0%" stop-color="#2dd4bf" stop-opacity="0.35"/>
+      <stop offset="100%" stop-color="#2dd4bf" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="cornerGlowR" cx="100%" cy="0%" r="70%">
+      <stop offset="0%" stop-color="#2dd4bf" stop-opacity="0.3"/>
+      <stop offset="100%" stop-color="#2dd4bf" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="trophyGold" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#ffe9a8"/>
+      <stop offset="45%" stop-color="#f2c14e"/>
+      <stop offset="100%" stop-color="#b8862f"/>
+    </linearGradient>
+  </defs>
+
+  <!-- base pitch backdrop -->
+  <rect width="1600" height="900" fill="#06201d"/>
+  <rect width="1600" height="900" fill="url(#cornerGlowL)"/>
+  <rect width="1600" height="900" fill="url(#cornerGlowR)"/>
+
+  <!-- pitch markings, faint -->
+  <g stroke="#ffffff" stroke-opacity="0.06" stroke-width="2" fill="none">
+    <circle cx="800" cy="780" r="160"/>
+    <line x1="0" y1="780" x2="1600" y2="780"/>
+    <rect x="600" y="700" width="400" height="180"/>
+    <rect x="700" y="760" width="200" height="120"/>
+    <circle cx="800" cy="780" r="4" fill="#ffffff" fill-opacity="0.12" stroke="none"/>
+  </g>
+  <g stroke="#ffffff" stroke-opacity="0.045" stroke-width="1" fill="none">
+    <circle cx="800" cy="450" r="420"/>
+    <circle cx="800" cy="450" r="300"/>
+  </g>
+
+  <!-- stadium floodlight glow above the trophy -->
+  <ellipse cx="800" cy="330" rx="520" ry="360" fill="url(#glowTeal)"/>
+
+  <!-- left player silhouette: striking pose -->
+  <g transform="translate(260,330)" fill="#0f3b35" fill-opacity="0.9">
+    <path d="M40 60
+      C20 40 25 10 55 5
+      C85 0 95 30 85 55
+      L100 90
+      L150 70
+      L165 95
+      L105 130
+      L80 115
+      L60 170
+      L100 230
+      L80 260
+      L30 200
+      L10 230
+      L-10 200
+      L25 150
+      L0 110
+      Z"/>
+    <circle cx="60" cy="22" r="22"/>
+  </g>
+
+  <!-- right player silhouette: celebrating, arms raised -->
+  <g transform="translate(1180,300)" fill="#0f3b35" fill-opacity="0.9">
+    <path d="M60 60
+      C40 40 45 10 75 5
+      C105 0 115 30 105 55
+      L130 0
+      L150 10
+      L120 80
+      L95 70
+      L100 140
+      L140 230
+      L115 250
+      L80 170
+      L55 250
+      L25 240
+      L55 140
+      L45 75
+      L10 70
+      L20 40
+      L60 60
+      Z"/>
+    <circle cx="80" cy="22" r="22"/>
+  </g>
+
+  <!-- goalkeeper silhouette diving, far left -->
+  <g transform="translate(80,520) rotate(-12)" fill="#0f3b35" fill-opacity="0.75">
+    <path d="M0 40
+      C-10 20 10 0 35 5
+      L120 -30
+      L130 -10
+      L55 25
+      L70 60
+      L160 60
+      L160 85
+      L55 95
+      L20 70
+      Z"/>
+    <circle cx="20" cy="10" r="18"/>
+  </g>
+
+  <!-- runner silhouette, far right -->
+  <g transform="translate(1420,540) rotate(8)" fill="#0f3b35" fill-opacity="0.75">
+    <path d="M0 50
+      C-15 30 0 5 25 5
+      C50 5 55 30 45 50
+      L70 90
+      L120 70
+      L130 90
+      L65 120
+      L40 100
+      L10 160
+      L-15 150
+      L15 90
+      Z"/>
+    <circle cx="22" cy="-12" r="18"/>
+  </g>
+
+  <!-- world cup trophy, centered -->
+  <g transform="translate(800,470)">
+    <ellipse cx="0" cy="190" rx="130" ry="18" fill="#000000" opacity="0.25"/>
+    <!-- base -->
+    <rect x="-70" y="150" width="140" height="22" rx="4" fill="url(#trophyGold)"/>
+    <rect x="-30" y="110" width="60" height="46" fill="url(#trophyGold)"/>
+    <!-- stem -->
+    <path d="M-14 110 L14 110 L20 40 L-20 40 Z" fill="url(#trophyGold)"/>
+    <!-- spiraling cup body -->
+    <path d="M-55 40
+      C-55 -10 -35 -55 0 -90
+      C35 -55 55 -10 55 40
+      C55 65 30 78 0 78
+      C-30 78 -55 65 -55 40 Z"
+      fill="url(#trophyGold)"/>
+    <path d="M-40 30 C-40 0 -25 -30 0 -55 C25 -30 40 0 40 30 C40 48 22 58 0 58 C-22 58 -40 48 -40 30 Z"
+      fill="#06201d" opacity="0.18"/>
+    <!-- spikes radiating from the top, classic WC trophy shape -->
+    <path d="M0 -90 C-6 -110 -2 -132 0 -150 C2 -132 6 -110 0 -90 Z" fill="url(#trophyGold)"/>
+    <path d="M-22 -78 C-34 -94 -36 -114 -32 -130 C-22 -116 -16 -96 -22 -78 Z" fill="url(#trophyGold)"/>
+    <path d="M22 -78 C34 -94 36 -114 32 -130 C22 -116 16 -96 22 -78 Z" fill="url(#trophyGold)"/>
+  </g>
+
+  <!-- floodlight beams -->
+  <g opacity="0.10" fill="#2dd4bf">
+    <polygon points="40,0 280,0 120,420 0,300"/>
+    <polygon points="1560,0 1320,0 1480,420 1600,300"/>
+  </g>
+</svg>
