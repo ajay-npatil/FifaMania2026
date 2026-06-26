@@ -63,6 +63,10 @@ create table if not exists tournament_predictions (
   country_points int,   -- 175 if correct, 0 if wrong, null until settled
   scorer_points int,    -- 175 if correct, 0 if wrong, null until settled
   bracket jsonb,        -- knockout predictions: { qf:[], sf:[], final:[], winner, third }
+  golden_ball text,     -- predicted best overall player
+  golden_glove text,    -- predicted best goalkeeper
+  golden_ball_points int,  -- 175 if correct, 0 if wrong, null until settled
+  golden_glove_points int, -- 175 if correct, 0 if wrong, null until settled
   updated_at timestamptz not null default now()
 );
 
@@ -72,6 +76,8 @@ create table if not exists tournament_results (
   id int primary key default 1,
   top_country text,
   top_scorer text,
+  golden_ball text,   -- actual best player (entered by admin at settle)
+  golden_glove text,  -- actual best goalkeeper (entered by admin at settle)
   settled_at timestamptz,
   constraint tournament_results_single_row check (id = 1)
 );

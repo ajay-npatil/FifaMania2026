@@ -29,7 +29,9 @@ export async function computeStandings(
   // include stages that are already revealed.
   const { data: tournament } = await supabase
     .from("tournament_predictions")
-    .select("user_id, country_points, scorer_points, bracket");
+    .select(
+      "user_id, country_points, scorer_points, golden_ball_points, golden_glove_points, bracket"
+    );
   const bracketActuals = await computeBracketActuals(supabase);
 
   const totals = new Map<string, number>();
@@ -41,6 +43,8 @@ export async function computeStandings(
     const bonus =
       (t.country_points ?? 0) +
       (t.scorer_points ?? 0) +
+      (t.golden_ball_points ?? 0) +
+      (t.golden_glove_points ?? 0) +
       scoreBracket(t.bracket, bracketActuals).total;
     totals.set(t.user_id, (totals.get(t.user_id) ?? 0) + bonus);
   }

@@ -1,6 +1,11 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { flagFor } from "@/lib/flags";
+import {
+  GOLDEN_BALL_CANDIDATES,
+  GOLDEN_GLOVE_CANDIDATES,
+} from "@/lib/awards";
 
 interface AdminUser {
   id: string;
@@ -16,6 +21,8 @@ export default function AdminPage() {
   const [snapResult, setSnapResult] = useState<string | null>(null);
   const [settling, setSettling] = useState(false);
   const [settleResult, setSettleResult] = useState<string | null>(null);
+  const [goldenBall, setGoldenBall] = useState("");
+  const [goldenGlove, setGoldenGlove] = useState("");
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [usersLoading, setUsersLoading] = useState(true);
   const [deletingId, setDeletingId] = useState<string | null>(null);
@@ -75,7 +82,11 @@ export default function AdminPage() {
 
     setSettling(true);
     setSettleResult(null);
-    const res = await fetch("/api/admin/settle-tournament", { method: "POST" });
+    const res = await fetch("/api/admin/settle-tournament", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ goldenBall, goldenGlove }),
+    });
     const data = await res.json();
     setSettling(false);
     if (!res.ok) {
@@ -83,11 +94,11 @@ export default function AdminPage() {
       return;
     }
     setSettleResult(
-      `Settled ${data.settled} entries. Top country: ${
-        data.countryLeaders?.join(", ") || "—"
-      } (${data.countryWinners} winners). Top scorer: ${
-        data.scorerLeaders?.join(", ") || "—"
-      } (${data.scorerWinners} winners).`
+      `Settled ${data.settled} entries. ` +
+        `Top country: ${data.countryLeaders?.join(", ") || "—"} (${data.countryWinners} winners). ` +
+        `Top scorer: ${data.scorerLeaders?.join(", ") || "—"} (${data.scorerWinners} winners). ` +
+        `Golden Ball: ${data.goldenBall || "—"} (${data.ballWinners} winners). ` +
+        `Golden Glove: ${data.goldenGlove || "—"} (${data.gloveWinners} winners).`
     );
   }
 
@@ -180,10 +191,44 @@ export default function AdminPage() {
       <section className="mb-10">
         <h2 className="text-lg font-semibold mb-2">Settle Predict-a-Winner</h2>
         <p className="text-sm text-zinc-500 mb-4">
-          Awards 175 points for each correct tournament-long pick (top-scoring
-          country and golden boot). Run once after the final. Re-running is safe
-          and just recomputes from the latest results.
+          Awards 175 points for each correct tournament-long pick. Top country
+          and golden boot are computed automatically; pick the Golden Ball and
+          Golden Glove winners below (FIFA announces these — no API provides
+          them). Run once after the final. Re-running is safe and recomputes
+          from the latest results.
         </p>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
+          <label className="text-sm">
+            <span className="block text-zinc-500 mb-1">Golden Ball winner</span>
+            <select
+              className="w-full border border-zinc-300 dark:border-zinc-700 rounded-md px-3 py-2 bg-transparent focus:outline-none focus:border-accent"
+              value={goldenBall}
+              onChange={(e) => setGoldenBall(e.target.value)}
+            >
+              <option value="">— not decided —</option>
+              {GOLDEN_BALL_CANDIDATES.map((c) => (
+                <option key={c.name} value={c.name}>
+                  {flagFor(c.country)} {c.name}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="text-sm">
+            <span className="block text-zinc-500 mb-1">Golden Glove winner</span>
+            <select
+              className="w-full border border-zinc-300 dark:border-zinc-700 rounded-md px-3 py-2 bg-transparent focus:outline-none focus:border-accent"
+              value={goldenGlove}
+              onChange={(e) => setGoldenGlove(e.target.value)}
+            >
+              <option value="">— not decided —</option>
+              {GOLDEN_GLOVE_CANDIDATES.map((c) => (
+                <option key={c.name} value={c.name}>
+                  {flagFor(c.country)} {c.name}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
         <button
           onClick={settleTournament}
           disabled={settling}

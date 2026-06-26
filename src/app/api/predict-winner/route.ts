@@ -14,6 +14,13 @@ import {
   scoreBracket,
   emptyBracket,
 } from "@/lib/bracket";
+import {
+  GOLDEN_BALL_CANDIDATES,
+  GOLDEN_GLOVE_CANDIDATES,
+  isCandidate,
+} from "@/lib/awards";
+// Candidate lists are static and imported directly by the client; only the
+// validation helpers are needed here.
 
 interface ScorerOption {
   name: string;
@@ -54,13 +61,15 @@ export async function GET() {
 
   const { data: pick } = await supabase
     .from("tournament_predictions")
-    .select("top_country, top_scorer, country_points, scorer_points, bracket")
+    .select(
+      "top_country, top_scorer, country_points, scorer_points, bracket, golden_ball, golden_glove, golden_ball_points, golden_glove_points"
+    )
     .eq("user_id", user.id)
     .maybeSingle();
 
   const { data: results } = await supabase
     .from("tournament_results")
-    .select("top_country, top_scorer, settled_at")
+    .select("top_country, top_scorer, golden_ball, golden_glove, settled_at")
     .eq("id", 1)
     .maybeSingle();
 
@@ -151,6 +160,28 @@ export async function POST(req: NextRequest) {
     }
   }
 
+  const golden_ball =
+    typeof body.golden_ball === "string" && body.golden_ball.trim()
+      ? body.golden_ball.trim()
+      : null;
+  if (golden_ball && !isCandidate(GOLDEN_BALL_CANDIDATES, golden_ball)) {
+    return NextResponse.json(
+      { error: "Pick a Golden Ball candidate from the list." },
+      { status: 400 }
+    );
+  }
+
+  const golden_glove =
+    typeof body.golden_glove === "string" && body.golden_glove.trim()
+      ? body.golden_glove.trim()
+      : null;
+  if (golden_glove && !isCandidate(GOLDEN_GLOVE_CANDIDATES, golden_glove)) {
+    return NextResponse.json(
+      { error: "Pick a Golden Glove candidate from the list." },
+      { status: 400 }
+    );
+  }
+
   // Each stage may only contain teams chosen in the previous stage, so a
   // user can't advance a team they didn't put through. Restricting the
   // allowed set at each step drops any ineligible picks.
@@ -176,7 +207,13 @@ export async function POST(req: NextRequest) {
     !bracket.winner &&
     !bracket.third;
 
-  if (!top_country && !top_scorer && bracketEmpty) {
+  if (
+    !top_country &&
+    !top_scorer &&
+    !golden_ball &&
+    !golden_glove &&
+    bracketEmpty
+  ) {
     return NextResponse.json(
       { error: "Make at least one pick before saving." },
       { status: 400 }
@@ -188,6 +225,8 @@ export async function POST(req: NextRequest) {
       user_id: user.id,
       top_country,
       top_scorer,
+      golden_ball,
+      golden_glove,
       bracket,
       updated_at: new Date().toISOString(),
     },

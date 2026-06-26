@@ -2,6 +2,10 @@
 
 import { useEffect, useState, type ReactNode } from "react";
 import { flagFor } from "@/lib/flags";
+import {
+  GOLDEN_BALL_CANDIDATES,
+  GOLDEN_GLOVE_CANDIDATES,
+} from "@/lib/awards";
 
 interface ScorerOption {
   name: string;
@@ -14,11 +18,17 @@ interface Pick {
   top_scorer: string | null;
   country_points: number | null;
   scorer_points: number | null;
+  golden_ball: string | null;
+  golden_glove: string | null;
+  golden_ball_points: number | null;
+  golden_glove_points: number | null;
 }
 
 interface Results {
   top_country: string | null;
   top_scorer: string | null;
+  golden_ball: string | null;
+  golden_glove: string | null;
   settled_at: string | null;
 }
 
@@ -179,6 +189,8 @@ export default function PredictWinner() {
   const [fin, setFin] = useState<string[]>(() => Array(2).fill(""));
   const [winner, setWinner] = useState("");
   const [third, setThird] = useState("");
+  const [goldenBall, setGoldenBall] = useState("");
+  const [goldenGlove, setGoldenGlove] = useState("");
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -194,6 +206,8 @@ export default function PredictWinner() {
     setData(d);
     setCountry(d.pick?.top_country ?? "");
     setScorer(d.pick?.top_scorer ?? "");
+    setGoldenBall(d.pick?.golden_ball ?? "");
+    setGoldenGlove(d.pick?.golden_glove ?? "");
     // Prune saved picks down the cascade so a stage never shows a team that
     // isn't eligible from the stage before it.
     const loadedQf = pad(d.bracket?.qf, 8);
@@ -237,6 +251,8 @@ export default function PredictWinner() {
       body: JSON.stringify({
         top_country: country,
         top_scorer: scorer,
+        golden_ball: goldenBall,
+        golden_glove: goldenGlove,
         bracket: {
           qf: qf.filter(Boolean),
           sf: sf.filter(Boolean),
@@ -344,10 +360,12 @@ export default function PredictWinner() {
     <div>
       <h1 className="text-2xl font-bold mb-2">Predict a Winner</h1>
       <p className="text-sm text-zinc-500 mb-1">
-        Two tournament-long calls: which <strong>country</strong> scores the most
-        goals across the whole World Cup, and who wins the <strong>golden boot</strong>{" "}
-        (top scorer). Worth <strong>{data.points} points each</strong> if you nail
-        it.
+        Tournament-long calls, each worth{" "}
+        <strong>{data.points} points</strong> if you nail it: the{" "}
+        <strong>country</strong> that scores the most goals, the{" "}
+        <strong>golden boot</strong> (top scorer), the{" "}
+        <strong>Golden Ball</strong> (best player) and the{" "}
+        <strong>Golden Glove</strong> (best goalkeeper).
       </p>
       <p className="text-sm text-zinc-500 mb-6">
         Picks lock 15 minutes before the Round of 32 and{" "}
@@ -374,6 +392,12 @@ export default function PredictWinner() {
           </p>
           <p className="text-sm">
             Top scorer: <strong>{data.results?.top_scorer || "—"}</strong>
+          </p>
+          <p className="text-sm">
+            Golden Ball: <strong>{data.results?.golden_ball || "—"}</strong>
+          </p>
+          <p className="text-sm">
+            Golden Glove: <strong>{data.results?.golden_glove || "—"}</strong>
           </p>
         </div>
       )}
@@ -442,6 +466,60 @@ export default function PredictWinner() {
             <p className="text-xs mt-2 font-medium">
               {data.pick.scorer_points
                 ? `✅ Correct — +${data.pick.scorer_points} pts`
+                : "❌ Not this time — 0 pts"}
+            </p>
+          )}
+        </div>
+
+        {/* Golden Ball pick */}
+        <div className="rounded-lg border border-zinc-200 dark:border-zinc-800 p-4">
+          <label className="block font-medium mb-2">
+            Golden Ball (best player)
+          </label>
+          <select
+            className="w-full border border-zinc-300 dark:border-zinc-700 rounded-md px-3 py-2 bg-transparent focus:outline-none focus:border-accent disabled:opacity-60"
+            value={goldenBall}
+            disabled={locked}
+            onChange={(e) => setGoldenBall(e.target.value)}
+          >
+            <option value="">— Pick a player —</option>
+            {GOLDEN_BALL_CANDIDATES.map((c) => (
+              <option key={c.name} value={c.name}>
+                {flagFor(c.country)} {c.name}
+              </option>
+            ))}
+          </select>
+          {settled && data.pick && (
+            <p className="text-xs mt-2 font-medium">
+              {data.pick.golden_ball_points
+                ? `✅ Correct — +${data.pick.golden_ball_points} pts`
+                : "❌ Not this time — 0 pts"}
+            </p>
+          )}
+        </div>
+
+        {/* Golden Glove pick */}
+        <div className="rounded-lg border border-zinc-200 dark:border-zinc-800 p-4">
+          <label className="block font-medium mb-2">
+            Golden Glove (best goalkeeper)
+          </label>
+          <select
+            className="w-full border border-zinc-300 dark:border-zinc-700 rounded-md px-3 py-2 bg-transparent focus:outline-none focus:border-accent disabled:opacity-60"
+            value={goldenGlove}
+            disabled={locked}
+            onChange={(e) => setGoldenGlove(e.target.value)}
+          >
+            <option value="">— Pick a goalkeeper —</option>
+            {GOLDEN_GLOVE_CANDIDATES.map((c) => (
+              <option key={c.name} value={c.name}>
+                {flagFor(c.country)} {c.name}
+              </option>
+            ))}
+          </select>
+          {settled && data.pick && (
+            <p className="text-xs mt-2 font-medium">
+              {data.pick.golden_glove_points
+                ? `✅ Correct — +${data.pick.golden_glove_points} pts`
                 : "❌ Not this time — 0 pts"}
             </p>
           )}
