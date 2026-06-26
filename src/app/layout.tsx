@@ -19,7 +19,7 @@ export default function RootLayout({
         <main className="flex-1 w-full">{children}</main>
         <footer className="w-full text-center text-xs text-zinc-500 py-4">
           Created by Dhruv Patil
-          {process.env.NODE_ENV !== "production" && " | Env : Dev"}
+          {process.env.VERCEL_GIT_COMMIT_REF === "dev" && " | Env : Dev"}
         </footer>
       </body>
     </html>
