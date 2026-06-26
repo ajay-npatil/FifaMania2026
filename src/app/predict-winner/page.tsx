@@ -141,7 +141,7 @@ export default function PredictWinnerPage() {
 
       {message && <p className="mb-4 text-sm">{message}</p>}
 
-      <div className="flex flex-col gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 items-start">
         {/* Country pick */}
         <div className="rounded-lg border border-zinc-200 dark:border-zinc-800 p-4">
           <label className="block font-medium mb-2">
