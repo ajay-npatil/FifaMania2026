@@ -119,67 +119,41 @@ function TeamSelect({
   );
 }
 
-// A single round (vertical column) in the bracket. Slots are spread evenly so
-// each inner round lines up with the midpoints of the round feeding into it.
-function Round({
-  header,
+// One stage of the tournament. The picks are a set of teams — order and
+// pairing don't matter, only whether a team reaches the stage.
+function StageCard({
+  title,
+  subtitle,
   points,
+  accent,
   children,
 }: {
-  header: string;
+  title: string;
+  subtitle: string;
   points?: number | null;
+  accent?: boolean;
   children: ReactNode;
 }) {
   return (
-    <div className="flex flex-col w-32 shrink-0">
-      <div className="h-6 text-center text-[11px] font-semibold text-zinc-500 truncate">
-        {header}
-        {points != null && points > 0 && (
-          <span className="text-green-600 dark:text-green-400"> +{points}</span>
-        )}
+    <div
+      className={`rounded-lg p-4 ${
+        accent
+          ? "border-2 border-accent/60"
+          : "border border-zinc-200 dark:border-zinc-800"
+      }`}
+    >
+      <div className="flex items-baseline justify-between gap-2 mb-3">
+        <h3 className="font-semibold">{title}</h3>
+        <span className="text-xs text-zinc-500">
+          {subtitle}
+          {points != null && points > 0 && (
+            <span className="ml-2 font-medium text-green-600 dark:text-green-400">
+              +{points}
+            </span>
+          )}
+        </span>
       </div>
-      <div className="flex-1 flex flex-col justify-around">{children}</div>
-    </div>
-  );
-}
-
-// The "]" / "[" shaped lines joining a pair of feeder slots to the next round.
-function Conn({
-  side,
-  heightClass,
-  count,
-}: {
-  side: "l" | "r";
-  heightClass: string;
-  count: number;
-}) {
-  const border =
-    side === "l"
-      ? "border-t-2 border-b-2 border-r-2 rounded-r-md"
-      : "border-t-2 border-b-2 border-l-2 rounded-l-md";
-  return (
-    <div className="flex flex-col w-3 shrink-0">
-      <div className="h-6" />
-      <div className="flex-1 flex flex-col justify-around">
-        {Array.from({ length: count }).map((_, i) => (
-          <div
-            key={i}
-            className={`${heightClass} ${border} border-zinc-300 dark:border-zinc-700`}
-          />
-        ))}
-      </div>
-    </div>
-  );
-}
-
-// A straight line (final → champion).
-function Straight() {
-  return (
-    <div className="flex flex-col w-3 shrink-0">
-      <div className="h-6" />
-      <div className="flex-1 flex flex-col justify-center">
-        <div className="border-t-2 border-zinc-300 dark:border-zinc-700" />
-      </div>
+      {children}
     </div>
   );
 }
@@ -302,7 +276,7 @@ export default function PredictWinnerPage() {
   );
 
   return (
-    <div className="max-w-5xl mx-auto px-4 py-10">
+    <div className="max-w-3xl mx-auto px-4 py-10">
       <h1 className="text-2xl font-bold mb-2">Predict a Winner</h1>
       <p className="text-sm text-zinc-500 mb-1">
         Two tournament-long calls: which <strong>country</strong> scores the most
@@ -409,11 +383,13 @@ export default function PredictWinnerPage() {
         </div>
       </div>
 
-      {/* Knockout bracket */}
+      {/* Stage predictions */}
       <div className="mt-12">
-        <h2 className="text-lg font-semibold mb-1">Knockout bracket</h2>
+        <h2 className="text-lg font-semibold mb-1">Stage predictions</h2>
         <p className="text-sm text-zinc-500 mb-1">
-          Predict who reaches each stage. Points per correct team:{" "}
+          Pick which teams reach each stage — it doesn&apos;t matter who plays
+          whom or which side of the draw they&apos;re on, only whether a team
+          makes it. Points per correct team:{" "}
           <strong>
             {data.bracketConfig.qf} QF · {data.bracketConfig.sf} SF ·{" "}
             {data.bracketConfig.final} Final · {data.bracketConfig.winner} Winner ·{" "}
@@ -432,112 +408,85 @@ export default function PredictWinnerPage() {
           data.bracketReveal.winner ||
           data.bracketReveal.third) && (
           <p className="mb-4 text-sm font-medium">
-            Bracket points so far:{" "}
+            Stage points so far:{" "}
             <span className="text-accent">{data.bracketPoints.total}</span>
           </p>
         )}
 
-        <div className="overflow-x-auto pb-2">
-          <div className="flex h-[480px] min-w-[940px] w-fit mx-auto">
-            {/* Left half: outer → inner */}
-            <Round
-              header="Quarter finals"
-              points={data.bracketReveal.qf ? data.bracketPoints.qf : null}
-            >
-              {[0, 1, 2, 3].map((i) => (
+        <div className="flex flex-col gap-4">
+          <StageCard
+            title="Quarter-finalists"
+            subtitle={`pick up to 8 · ${data.bracketConfig.qf} pts each`}
+            points={data.bracketReveal.qf ? data.bracketPoints.qf : null}
+          >
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+              {[0, 1, 2, 3, 4, 5, 6, 7].map((i) => (
                 <div key={i}>{qfSlot(i)}</div>
               ))}
-            </Round>
-            <Conn side="l" count={2} heightClass="h-1/4" />
-            <Round
-              header="Semi finals"
-              points={data.bracketReveal.sf ? data.bracketPoints.sf : null}
-            >
-              {[0, 1].map((i) => (
-                <div key={i}>{sfSlot(i)}</div>
-              ))}
-            </Round>
-            <Conn side="l" count={1} heightClass="h-1/2" />
-            <Round
-              header="Final"
-              points={data.bracketReveal.final ? data.bracketPoints.final : null}
-            >
-              {finSlot(0)}
-            </Round>
-            <Straight />
-
-            {/* Champion */}
-            <div className="flex flex-col w-40 shrink-0">
-              <div className="h-6 text-center text-[11px] font-semibold text-zinc-500">
-                Champions
-              </div>
-              <div className="flex-1 flex flex-col items-center justify-center">
-                <div className="w-full rounded-lg border-2 border-accent/60 p-2 text-center">
-                  <p className="text-xs font-semibold mb-1">
-                    🏆 Winner
-                    {data.bracketReveal.winner && data.bracketPoints.winner > 0 && (
-                      <span className="text-green-600 dark:text-green-400">
-                        {" "}
-                        +{data.bracketPoints.winner}
-                      </span>
-                    )}
-                  </p>
-                  <TeamSelect
-                    value={winner}
-                    disabled={locked}
-                    teams={data.countries}
-                    mark={hitMark(
-                      winner,
-                      data.bracketReveal.winner,
-                      data.bracketActuals.winner ? [data.bracketActuals.winner] : []
-                    )}
-                    onChange={setWinner}
-                  />
-                </div>
-              </div>
             </div>
+          </StageCard>
 
-            <Straight />
-            {/* Right half: inner → outer */}
-            <Round header="Final">{finSlot(1)}</Round>
-            <Conn side="r" count={1} heightClass="h-1/2" />
-            <Round header="Semi finals">
-              {[2, 3].map((i) => (
+          <StageCard
+            title="Semi-finalists"
+            subtitle={`pick up to 4 · ${data.bracketConfig.sf} pts each`}
+            points={data.bracketReveal.sf ? data.bracketPoints.sf : null}
+          >
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+              {[0, 1, 2, 3].map((i) => (
                 <div key={i}>{sfSlot(i)}</div>
               ))}
-            </Round>
-            <Conn side="r" count={2} heightClass="h-1/4" />
-            <Round header="Quarter finals">
-              {[4, 5, 6, 7].map((i) => (
-                <div key={i}>{qfSlot(i)}</div>
-              ))}
-            </Round>
-          </div>
-        </div>
+            </div>
+          </StageCard>
 
-        {/* Third place, below the centre like a real bracket sheet */}
-        <div className="flex justify-center mt-2">
-          <div className="w-56 rounded-lg border border-zinc-200 dark:border-zinc-800 p-2 text-center">
-            <p className="text-xs font-semibold mb-1">
-              🥉 Third place
-              {data.bracketReveal.third && data.bracketPoints.third > 0 && (
-                <span className="text-green-600 dark:text-green-400">
-                  {" "}
-                  +{data.bracketPoints.third}
-                </span>
-              )}
-            </p>
-            <TeamSelect
-              value={third}
-              disabled={locked}
-              teams={data.countries}
-              mark={hitMark(
-                third,
-                data.bracketReveal.third,
-                data.bracketActuals.third ? [data.bracketActuals.third] : []
-              )}
-              onChange={setThird}
-            />
+          <StageCard
+            title="Finalists"
+            subtitle={`pick up to 2 · ${data.bracketConfig.final} pts each`}
+            points={data.bracketReveal.final ? data.bracketPoints.final : null}
+          >
+            <div className="grid grid-cols-2 gap-2">
+              {[0, 1].map((i) => (
+                <div key={i}>{finSlot(i)}</div>
+              ))}
+            </div>
+          </StageCard>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <StageCard
+              title="🏆 Winner"
+              subtitle={`${data.bracketConfig.winner} pts`}
+              points={data.bracketReveal.winner ? data.bracketPoints.winner : null}
+              accent
+            >
+              <TeamSelect
+                value={winner}
+                disabled={locked}
+                teams={data.countries}
+                mark={hitMark(
+                  winner,
+                  data.bracketReveal.winner,
+                  data.bracketActuals.winner ? [data.bracketActuals.winner] : []
+                )}
+                onChange={setWinner}
+              />
+            </StageCard>
+
+            <StageCard
+              title="🥉 Third place"
+              subtitle={`${data.bracketConfig.third} pts`}
+              points={data.bracketReveal.third ? data.bracketPoints.third : null}
+            >
+              <TeamSelect
+                value={third}
+                disabled={locked}
+                teams={data.countries}
+                mark={hitMark(
+                  third,
+                  data.bracketReveal.third,
+                  data.bracketActuals.third ? [data.bracketActuals.third] : []
+                )}
+                onChange={setThird}
+              />
+            </StageCard>
           </div>
         </div>
       </div>
