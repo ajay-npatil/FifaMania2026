@@ -31,6 +31,9 @@ export async function GET() {
     return {
       display_name: s.display_name,
       points: s.points,
+      match: s.match,
+      knockout: s.knockout,
+      bonus: s.bonus,
       rank: s.rank,
       // Positive = climbed, negative = dropped, null = no prior snapshot.
       rankDelta: before ? before.rank - s.rank : null,

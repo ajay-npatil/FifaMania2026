@@ -6,6 +6,9 @@ import Link from "next/link";
 interface Row {
   display_name: string;
   points: number;
+  match: number;
+  knockout: number;
+  bonus: number;
   rank: number;
   rankDelta: number | null;
   pointsGained: number | null;
@@ -68,14 +71,17 @@ export default function LeaderboardPage() {
 
   return (
     <div className="max-w-3xl mx-auto px-4 py-10">
-      <h1 className={hasSnapshot ? "text-2xl font-bold mb-1" : "text-2xl font-bold mb-6"}>
-        Leaderboard
-      </h1>
+      <h1 className="text-2xl font-bold mb-1">Leaderboard</h1>
+      <p className="text-xs text-zinc-500 mb-1">
+        Each total = match predictions + knockout bracket + Predict-a-Winner
+        bonuses.
+      </p>
       {hasSnapshot && (
-        <p className="text-xs text-zinc-500 mb-5">
+        <p className="text-xs text-zinc-500 mb-1">
           ▲▼ shows movement since the last round.
         </p>
       )}
+      <div className="mb-5" />
 
       <div className="relative">
         <div
@@ -89,13 +95,20 @@ export default function LeaderboardPage() {
               key={r.display_name}
               className="flex items-center justify-between border-b border-zinc-200 dark:border-zinc-800 py-3"
             >
-              <span className="flex items-center gap-3">
+              <span className="flex items-center gap-3 min-w-0">
                 <span className={i < 3 ? "text-accent font-semibold w-6" : "text-zinc-500 w-6"}>
                   {i + 1}
                 </span>
-                <span className="font-medium">{r.display_name}</span>
+                <span className="min-w-0">
+                  <span className="font-medium">{r.display_name}</span>
+                  {r.points > 0 && (
+                    <span className="block text-xs text-zinc-500">
+                      Matches {r.match} · Knockout {r.knockout} · Bonus {r.bonus}
+                    </span>
+                  )}
+                </span>
               </span>
-              <span className="flex items-center gap-3">
+              <span className="flex items-center gap-3 shrink-0">
                 <Mover row={r} />
                 <span className="font-semibold">{r.points} pts</span>
               </span>
