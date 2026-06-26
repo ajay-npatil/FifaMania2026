@@ -194,11 +194,21 @@ export default function PredictWinnerPage() {
     setData(d);
     setCountry(d.pick?.top_country ?? "");
     setScorer(d.pick?.top_scorer ?? "");
-    setQf(pad(d.bracket?.qf, 8));
-    setSf(pad(d.bracket?.sf, 4));
-    setFin(pad(d.bracket?.final, 2));
-    setWinner(d.bracket?.winner ?? "");
-    setThird(d.bracket?.third ?? "");
+    // Prune saved picks down the cascade so a stage never shows a team that
+    // isn't eligible from the stage before it.
+    const loadedQf = pad(d.bracket?.qf, 8);
+    const allowedQf = new Set(loadedQf.filter(Boolean));
+    const loadedSf = pad(d.bracket?.sf, 4).map((t) => (allowedQf.has(t) ? t : ""));
+    const allowedSf = new Set(loadedSf.filter(Boolean));
+    const loadedFin = pad(d.bracket?.final, 2).map((t) =>
+      allowedSf.has(t) ? t : ""
+    );
+    const allowedFin = new Set(loadedFin.filter(Boolean));
+    setQf(loadedQf);
+    setSf(loadedSf);
+    setFin(loadedFin);
+    setWinner(d.bracket?.winner && allowedFin.has(d.bracket.winner) ? d.bracket.winner : "");
+    setThird(d.bracket?.third && allowedSf.has(d.bracket.third) ? d.bracket.third : "");
     setLoading(false);
   }
 
@@ -247,31 +257,70 @@ export default function PredictWinnerPage() {
   const locked = data.locked || lockMs <= 0;
   const settled = !!data.results?.settled_at;
 
+  // Each stage can only choose from the teams picked in the previous stage,
+  // so nobody can advance a team they didn't put through. Changing an upstream
+  // pick prunes any downstream picks that are no longer eligible.
+  const qfPicks = [...new Set(qf.filter(Boolean))];
+  const sfPicks = [...new Set(sf.filter(Boolean))];
+  const finPicks = [...new Set(fin.filter(Boolean))];
+
+  const changeQf = (i: number, v: string) => {
+    const nextQf = qf.map((x, idx) => (idx === i ? v : x));
+    const allowedQf = new Set(nextQf.filter(Boolean));
+    const nextSf = sf.map((t) => (allowedQf.has(t) ? t : ""));
+    const allowedSf = new Set(nextSf.filter(Boolean));
+    const nextFin = fin.map((t) => (allowedSf.has(t) ? t : ""));
+    const allowedFin = new Set(nextFin.filter(Boolean));
+    setQf(nextQf);
+    setSf(nextSf);
+    setFin(nextFin);
+    setWinner((w) => (w && allowedFin.has(w) ? w : ""));
+    setThird((t) => (t && allowedSf.has(t) ? t : ""));
+  };
+
+  const changeSf = (i: number, v: string) => {
+    const nextSf = sf.map((x, idx) => (idx === i ? v : x));
+    const allowedSf = new Set(nextSf.filter(Boolean));
+    const nextFin = fin.map((t) => (allowedSf.has(t) ? t : ""));
+    const allowedFin = new Set(nextFin.filter(Boolean));
+    setSf(nextSf);
+    setFin(nextFin);
+    setWinner((w) => (w && allowedFin.has(w) ? w : ""));
+    setThird((t) => (t && allowedSf.has(t) ? t : ""));
+  };
+
+  const changeFin = (i: number, v: string) => {
+    const nextFin = fin.map((x, idx) => (idx === i ? v : x));
+    const allowedFin = new Set(nextFin.filter(Boolean));
+    setFin(nextFin);
+    setWinner((w) => (w && allowedFin.has(w) ? w : ""));
+  };
+
   const qfSlot = (i: number) => (
     <TeamSelect
       value={qf[i]}
       disabled={locked}
       teams={data.countries}
       mark={hitMark(qf[i], data.bracketReveal.qf, data.bracketActuals.qf)}
-      onChange={(v) => setQf((s) => s.map((x, idx) => (idx === i ? v : x)))}
+      onChange={(v) => changeQf(i, v)}
     />
   );
   const sfSlot = (i: number) => (
     <TeamSelect
       value={sf[i]}
       disabled={locked}
-      teams={data.countries}
+      teams={qfPicks}
       mark={hitMark(sf[i], data.bracketReveal.sf, data.bracketActuals.sf)}
-      onChange={(v) => setSf((s) => s.map((x, idx) => (idx === i ? v : x)))}
+      onChange={(v) => changeSf(i, v)}
     />
   );
   const finSlot = (i: number) => (
     <TeamSelect
       value={fin[i]}
       disabled={locked}
-      teams={data.countries}
+      teams={sfPicks}
       mark={hitMark(fin[i], data.bracketReveal.final, data.bracketActuals.final)}
-      onChange={(v) => setFin((s) => s.map((x, idx) => (idx === i ? v : x)))}
+      onChange={(v) => changeFin(i, v)}
     />
   );
 
@@ -389,7 +438,9 @@ export default function PredictWinnerPage() {
         <p className="text-sm text-zinc-500 mb-1">
           Pick which teams reach each stage — it doesn&apos;t matter who plays
           whom or which side of the draw they&apos;re on, only whether a team
-          makes it. Points per correct team:{" "}
+          makes it. Each stage can only use teams from the stage before it (your
+          semi-finalists must be among your quarter-finalists, and so on). Points
+          per correct team:{" "}
           <strong>
             {data.bracketConfig.qf} QF · {data.bracketConfig.sf} SF ·{" "}
             {data.bracketConfig.final} Final · {data.bracketConfig.winner} Winner ·{" "}
@@ -428,64 +479,86 @@ export default function PredictWinnerPage() {
 
           <StageCard
             title="Semi-finalists"
-            subtitle={`pick up to 4 · ${data.bracketConfig.sf} pts each`}
+            subtitle={`pick 4 of your quarter-finalists · ${data.bracketConfig.sf} pts each`}
             points={data.bracketReveal.sf ? data.bracketPoints.sf : null}
           >
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-              {[0, 1, 2, 3].map((i) => (
-                <div key={i}>{sfSlot(i)}</div>
-              ))}
-            </div>
+            {qfPicks.length === 0 ? (
+              <p className="text-xs text-zinc-400">
+                Pick your quarter-finalists above first.
+              </p>
+            ) : (
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                {[0, 1, 2, 3].map((i) => (
+                  <div key={i}>{sfSlot(i)}</div>
+                ))}
+              </div>
+            )}
           </StageCard>
 
           <StageCard
             title="Finalists"
-            subtitle={`pick up to 2 · ${data.bracketConfig.final} pts each`}
+            subtitle={`pick 2 of your semi-finalists · ${data.bracketConfig.final} pts each`}
             points={data.bracketReveal.final ? data.bracketPoints.final : null}
           >
-            <div className="grid grid-cols-2 gap-2">
-              {[0, 1].map((i) => (
-                <div key={i}>{finSlot(i)}</div>
-              ))}
-            </div>
+            {sfPicks.length === 0 ? (
+              <p className="text-xs text-zinc-400">
+                Pick your semi-finalists above first.
+              </p>
+            ) : (
+              <div className="grid grid-cols-2 gap-2">
+                {[0, 1].map((i) => (
+                  <div key={i}>{finSlot(i)}</div>
+                ))}
+              </div>
+            )}
           </StageCard>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <StageCard
               title="🏆 Winner"
-              subtitle={`${data.bracketConfig.winner} pts`}
+              subtitle={`one of your finalists · ${data.bracketConfig.winner} pts`}
               points={data.bracketReveal.winner ? data.bracketPoints.winner : null}
               accent
             >
-              <TeamSelect
-                value={winner}
-                disabled={locked}
-                teams={data.countries}
-                mark={hitMark(
-                  winner,
-                  data.bracketReveal.winner,
-                  data.bracketActuals.winner ? [data.bracketActuals.winner] : []
-                )}
-                onChange={setWinner}
-              />
+              {finPicks.length === 0 ? (
+                <p className="text-xs text-zinc-400">Pick your finalists first.</p>
+              ) : (
+                <TeamSelect
+                  value={winner}
+                  disabled={locked}
+                  teams={finPicks}
+                  mark={hitMark(
+                    winner,
+                    data.bracketReveal.winner,
+                    data.bracketActuals.winner ? [data.bracketActuals.winner] : []
+                  )}
+                  onChange={setWinner}
+                />
+              )}
             </StageCard>
 
             <StageCard
               title="🥉 Third place"
-              subtitle={`${data.bracketConfig.third} pts`}
+              subtitle={`one of your semi-finalists · ${data.bracketConfig.third} pts`}
               points={data.bracketReveal.third ? data.bracketPoints.third : null}
             >
-              <TeamSelect
-                value={third}
-                disabled={locked}
-                teams={data.countries}
-                mark={hitMark(
-                  third,
-                  data.bracketReveal.third,
-                  data.bracketActuals.third ? [data.bracketActuals.third] : []
-                )}
-                onChange={setThird}
-              />
+              {sfPicks.length === 0 ? (
+                <p className="text-xs text-zinc-400">
+                  Pick your semi-finalists first.
+                </p>
+              ) : (
+                <TeamSelect
+                  value={third}
+                  disabled={locked}
+                  teams={sfPicks}
+                  mark={hitMark(
+                    third,
+                    data.bracketReveal.third,
+                    data.bracketActuals.third ? [data.bracketActuals.third] : []
+                  )}
+                  onChange={setThird}
+                />
+              )}
             </StageCard>
           </div>
         </div>

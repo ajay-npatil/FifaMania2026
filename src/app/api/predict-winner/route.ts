@@ -151,13 +151,19 @@ export async function POST(req: NextRequest) {
     }
   }
 
+  // Each stage may only contain teams chosen in the previous stage, so a
+  // user can't advance a team they didn't put through. Restricting the
+  // allowed set at each step drops any ineligible picks.
   const b = body.bracket ?? {};
+  const qf = sanitizeTeams(b.qf, BRACKET_SLOTS.qf, teams);
+  const sf = sanitizeTeams(b.sf, BRACKET_SLOTS.sf, new Set(qf));
+  const finalists = sanitizeTeams(b.final, BRACKET_SLOTS.final, new Set(sf));
   const bracket = {
-    qf: sanitizeTeams(b.qf, BRACKET_SLOTS.qf, teams),
-    sf: sanitizeTeams(b.sf, BRACKET_SLOTS.sf, teams),
-    final: sanitizeTeams(b.final, BRACKET_SLOTS.final, teams),
-    winner: validTeam(b.winner, teams),
-    third: validTeam(b.third, teams),
+    qf,
+    sf,
+    final: finalists,
+    winner: validTeam(b.winner, new Set(finalists)),
+    third: validTeam(b.third, new Set(sf)),
   };
 
   const bracketEmpty =
