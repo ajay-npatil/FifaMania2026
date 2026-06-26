@@ -1,5 +1,11 @@
 -- FifaMania database schema
 -- Run this in the Supabase SQL editor (Project -> SQL Editor -> New query).
+--
+-- This file is IDEMPOTENT and safe to run on any database, new or existing:
+-- `create table if not exists` builds a fresh DB, and the `alter table ...
+-- add column if not exists` block near the bottom backfills any columns that
+-- were added after a table was first created. Re-running it changes nothing
+-- that's already in place. No data is dropped or modified.
 
 create extension if not exists "uuid-ossp";
 
@@ -81,6 +87,23 @@ create table if not exists tournament_results (
   settled_at timestamptz,
   constraint tournament_results_single_row check (id = 1)
 );
+
+-- Column backfills for databases created before these columns existed. These
+-- run after the create-table statements above, so the tables are guaranteed to
+-- exist by now. Safe to re-run; each is a no-op if the column is already there.
+alter table matches add column if not exists stage text;
+alter table matches add column if not exists winner_team text;
+
+alter table tournament_predictions add column if not exists country_points int;
+alter table tournament_predictions add column if not exists scorer_points int;
+alter table tournament_predictions add column if not exists bracket jsonb;
+alter table tournament_predictions add column if not exists golden_ball text;
+alter table tournament_predictions add column if not exists golden_glove text;
+alter table tournament_predictions add column if not exists golden_ball_points int;
+alter table tournament_predictions add column if not exists golden_glove_points int;
+
+alter table tournament_results add column if not exists golden_ball text;
+alter table tournament_results add column if not exists golden_glove text;
 
 create index if not exists idx_predictions_match on predictions(match_id);
 create index if not exists idx_predictions_user on predictions(user_id);
