@@ -308,11 +308,16 @@ export default function PredictWinnerPage() {
     setThird((t) => (t && !allowedFin.has(t) ? t : ""));
   };
 
+  // A team already chosen in another slot of the same stage drops out of the
+  // remaining dropdowns, so the same team can't be picked twice in one stage.
+  const without = (base: string[], stage: string[], i: number) =>
+    base.filter((t) => t === stage[i] || !stage.some((v, idx) => idx !== i && v === t));
+
   const qfSlot = (i: number) => (
     <TeamSelect
       value={qf[i]}
       disabled={locked}
-      teams={data.countries}
+      teams={without(data.countries, qf, i)}
       mark={hitMark(qf[i], data.bracketReveal.qf, data.bracketActuals.qf)}
       onChange={(v) => changeQf(i, v)}
     />
@@ -321,7 +326,7 @@ export default function PredictWinnerPage() {
     <TeamSelect
       value={sf[i]}
       disabled={locked}
-      teams={qfPicks}
+      teams={without(qfPicks, sf, i)}
       mark={hitMark(sf[i], data.bracketReveal.sf, data.bracketActuals.sf)}
       onChange={(v) => changeSf(i, v)}
     />
@@ -330,7 +335,7 @@ export default function PredictWinnerPage() {
     <TeamSelect
       value={fin[i]}
       disabled={locked}
-      teams={sfPicks}
+      teams={without(sfPicks, fin, i)}
       mark={hitMark(fin[i], data.bracketReveal.final, data.bracketActuals.final)}
       onChange={(v) => changeFin(i, v)}
     />
