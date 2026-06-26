@@ -20,6 +20,13 @@ export async function POST() {
     const status = mapFdStatus(m.status);
     const home_score = m.score.fullTime.home;
     const away_score = m.score.fullTime.away;
+    // Actual winner (accounts for penalty shootouts), null for draws/unfinished.
+    const winner_team =
+      m.score.winner === "HOME_TEAM"
+        ? m.homeTeam.name
+        : m.score.winner === "AWAY_TEAM"
+        ? m.awayTeam.name
+        : null;
 
     const { data: match, error } = await supabase
       .from("matches")
@@ -33,6 +40,7 @@ export async function POST() {
           away_score,
           status,
           stage: m.stage,
+          winner_team,
         },
         { onConflict: "external_id" }
       )

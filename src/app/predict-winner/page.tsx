@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { flagFor } from "@/lib/flags";
 
 interface ScorerOption {
@@ -22,6 +22,36 @@ interface Results {
   settled_at: string | null;
 }
 
+interface BracketPicks {
+  qf: string[];
+  sf: string[];
+  final: string[];
+  winner: string | null;
+  third: string | null;
+}
+interface BracketActuals {
+  qf: string[];
+  sf: string[];
+  final: string[];
+  winner: string | null;
+  third: string | null;
+}
+interface BracketReveal {
+  qf: boolean;
+  sf: boolean;
+  final: boolean;
+  winner: boolean;
+  third: boolean;
+}
+interface BracketScore {
+  qf: number;
+  sf: number;
+  final: number;
+  winner: number;
+  third: number;
+  total: number;
+}
+
 interface Data {
   countries: string[];
   scorers: ScorerOption[];
@@ -30,6 +60,88 @@ interface Data {
   points: number;
   lockAt: string;
   locked: boolean;
+  bracket: BracketPicks;
+  bracketActuals: BracketActuals;
+  bracketReveal: BracketReveal;
+  bracketPoints: BracketScore;
+  bracketConfig: { qf: number; sf: number; final: number; winner: number; third: number };
+}
+
+function norm(s: string): string {
+  return s
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .toLowerCase()
+    .trim();
+}
+
+function hitMark(value: string, revealed: boolean, actual: string[]): string | null {
+  if (!revealed || !value) return null;
+  return actual.some((a) => norm(a) === norm(value)) ? "✅" : "❌";
+}
+
+function pad(arr: string[] | undefined, n: number): string[] {
+  const r = (arr ?? []).slice(0, n);
+  while (r.length < n) r.push("");
+  return r;
+}
+
+function TeamSelect({
+  value,
+  onChange,
+  disabled,
+  teams,
+  mark,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  disabled: boolean;
+  teams: string[];
+  mark: string | null;
+}) {
+  return (
+    <div className="flex items-center gap-1.5">
+      <select
+        className="flex-1 min-w-0 border border-zinc-300 dark:border-zinc-700 rounded-md px-2 py-1.5 bg-transparent text-sm focus:outline-none focus:border-accent disabled:opacity-60"
+        value={value}
+        disabled={disabled}
+        onChange={(e) => onChange(e.target.value)}
+      >
+        <option value="">— team —</option>
+        {teams.map((t) => (
+          <option key={t} value={t}>
+            {flagFor(t)} {t}
+          </option>
+        ))}
+      </select>
+      {mark && <span className="text-xs w-4 shrink-0">{mark}</span>}
+    </div>
+  );
+}
+
+function BracketGroup({
+  title,
+  hint,
+  points,
+  children,
+}: {
+  title: string;
+  hint?: string;
+  points?: number | null;
+  children: ReactNode;
+}) {
+  return (
+    <div className="rounded-lg border border-zinc-200 dark:border-zinc-800 p-3">
+      <p className="text-xs font-semibold text-zinc-500 mb-2">
+        {title}
+        {hint ? ` · ${hint}` : ""}
+        {points != null && points > 0 && (
+          <span className="text-green-600 dark:text-green-400"> · +{points}</span>
+        )}
+      </p>
+      <div className="flex flex-col gap-2">{children}</div>
+    </div>
+  );
 }
 
 function countdownLabel(ms: number): string {
@@ -48,6 +160,11 @@ export default function PredictWinnerPage() {
   const [data, setData] = useState<Data | null>(null);
   const [country, setCountry] = useState("");
   const [scorer, setScorer] = useState("");
+  const [qf, setQf] = useState<string[]>(() => Array(8).fill(""));
+  const [sf, setSf] = useState<string[]>(() => Array(4).fill(""));
+  const [fin, setFin] = useState<string[]>(() => Array(2).fill(""));
+  const [winner, setWinner] = useState("");
+  const [third, setThird] = useState("");
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -63,6 +180,11 @@ export default function PredictWinnerPage() {
     setData(d);
     setCountry(d.pick?.top_country ?? "");
     setScorer(d.pick?.top_scorer ?? "");
+    setQf(pad(d.bracket?.qf, 8));
+    setSf(pad(d.bracket?.sf, 4));
+    setFin(pad(d.bracket?.final, 2));
+    setWinner(d.bracket?.winner ?? "");
+    setThird(d.bracket?.third ?? "");
     setLoading(false);
   }
 
@@ -82,7 +204,17 @@ export default function PredictWinnerPage() {
     const res = await fetch("/api/predict-winner", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ top_country: country, top_scorer: scorer }),
+      body: JSON.stringify({
+        top_country: country,
+        top_scorer: scorer,
+        bracket: {
+          qf: qf.filter(Boolean),
+          sf: sf.filter(Boolean),
+          final: fin.filter(Boolean),
+          winner: winner || null,
+          third: third || null,
+        },
+      }),
     });
     const d = await res.json();
     setSaving(false);
@@ -102,7 +234,7 @@ export default function PredictWinnerPage() {
   const settled = !!data.results?.settled_at;
 
   return (
-    <div className="max-w-3xl mx-auto px-4 py-10">
+    <div className="max-w-5xl mx-auto px-4 py-10">
       <h1 className="text-2xl font-bold mb-2">Predict a Winner</h1>
       <p className="text-sm text-zinc-500 mb-1">
         Two tournament-long calls: which <strong>country</strong> scores the most
@@ -209,8 +341,165 @@ export default function PredictWinnerPage() {
         </div>
       </div>
 
+      {/* Knockout bracket */}
+      <div className="mt-12">
+        <h2 className="text-lg font-semibold mb-1">Knockout bracket</h2>
+        <p className="text-sm text-zinc-500 mb-1">
+          Predict who reaches each stage. Points per correct team:{" "}
+          <strong>
+            {data.bracketConfig.qf} QF · {data.bracketConfig.sf} SF ·{" "}
+            {data.bracketConfig.final} Final · {data.bracketConfig.winner} Winner ·{" "}
+            {data.bracketConfig.third} 3rd
+          </strong>
+          .
+        </p>
+        <p className="text-sm text-zinc-500 mb-4">
+          Each stage&apos;s points reveal automatically as the tournament reaches
+          it (Round of 16 done → QF, quarters done → semis, and so on).
+        </p>
+
+        {(data.bracketReveal.qf ||
+          data.bracketReveal.sf ||
+          data.bracketReveal.final ||
+          data.bracketReveal.winner ||
+          data.bracketReveal.third) && (
+          <p className="mb-4 text-sm font-medium">
+            Bracket points so far:{" "}
+            <span className="text-accent">{data.bracketPoints.total}</span>
+          </p>
+        )}
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-start">
+          {/* Left half */}
+          <div className="flex flex-col gap-4">
+            <BracketGroup
+              title="Quarter-finalists"
+              hint="left"
+              points={data.bracketReveal.qf ? data.bracketPoints.qf : null}
+            >
+              {[0, 1, 2, 3].map((i) => (
+                <TeamSelect
+                  key={i}
+                  value={qf[i]}
+                  disabled={locked}
+                  teams={data.countries}
+                  mark={hitMark(qf[i], data.bracketReveal.qf, data.bracketActuals.qf)}
+                  onChange={(v) =>
+                    setQf((s) => s.map((x, idx) => (idx === i ? v : x)))
+                  }
+                />
+              ))}
+            </BracketGroup>
+            <BracketGroup
+              title="Semi-finalists"
+              hint="left"
+              points={data.bracketReveal.sf ? data.bracketPoints.sf : null}
+            >
+              {[0, 1].map((i) => (
+                <TeamSelect
+                  key={i}
+                  value={sf[i]}
+                  disabled={locked}
+                  teams={data.countries}
+                  mark={hitMark(sf[i], data.bracketReveal.sf, data.bracketActuals.sf)}
+                  onChange={(v) =>
+                    setSf((s) => s.map((x, idx) => (idx === i ? v : x)))
+                  }
+                />
+              ))}
+            </BracketGroup>
+            <BracketGroup
+              title="Finalist"
+              hint="left"
+              points={data.bracketReveal.final ? data.bracketPoints.final : null}
+            >
+              <TeamSelect
+                value={fin[0]}
+                disabled={locked}
+                teams={data.countries}
+                mark={hitMark(fin[0], data.bracketReveal.final, data.bracketActuals.final)}
+                onChange={(v) => setFin((s) => s.map((x, idx) => (idx === 0 ? v : x)))}
+              />
+            </BracketGroup>
+          </div>
+
+          {/* Center */}
+          <div className="flex flex-col gap-4">
+            <div className="rounded-lg border-2 border-accent/50 p-4 text-center">
+              <p className="font-semibold mb-2">🏆 Winner</p>
+              <TeamSelect
+                value={winner}
+                disabled={locked}
+                teams={data.countries}
+                mark={hitMark(
+                  winner,
+                  data.bracketReveal.winner,
+                  data.bracketActuals.winner ? [data.bracketActuals.winner] : []
+                )}
+                onChange={setWinner}
+              />
+            </div>
+            <div className="rounded-lg border border-zinc-200 dark:border-zinc-800 p-4 text-center">
+              <p className="font-semibold mb-2">🥉 Third place</p>
+              <TeamSelect
+                value={third}
+                disabled={locked}
+                teams={data.countries}
+                mark={hitMark(
+                  third,
+                  data.bracketReveal.third,
+                  data.bracketActuals.third ? [data.bracketActuals.third] : []
+                )}
+                onChange={setThird}
+              />
+            </div>
+          </div>
+
+          {/* Right half */}
+          <div className="flex flex-col gap-4">
+            <BracketGroup title="Quarter-finalists" hint="right">
+              {[4, 5, 6, 7].map((i) => (
+                <TeamSelect
+                  key={i}
+                  value={qf[i]}
+                  disabled={locked}
+                  teams={data.countries}
+                  mark={hitMark(qf[i], data.bracketReveal.qf, data.bracketActuals.qf)}
+                  onChange={(v) =>
+                    setQf((s) => s.map((x, idx) => (idx === i ? v : x)))
+                  }
+                />
+              ))}
+            </BracketGroup>
+            <BracketGroup title="Semi-finalists" hint="right">
+              {[2, 3].map((i) => (
+                <TeamSelect
+                  key={i}
+                  value={sf[i]}
+                  disabled={locked}
+                  teams={data.countries}
+                  mark={hitMark(sf[i], data.bracketReveal.sf, data.bracketActuals.sf)}
+                  onChange={(v) =>
+                    setSf((s) => s.map((x, idx) => (idx === i ? v : x)))
+                  }
+                />
+              ))}
+            </BracketGroup>
+            <BracketGroup title="Finalist" hint="right">
+              <TeamSelect
+                value={fin[1]}
+                disabled={locked}
+                teams={data.countries}
+                mark={hitMark(fin[1], data.bracketReveal.final, data.bracketActuals.final)}
+                onChange={(v) => setFin((s) => s.map((x, idx) => (idx === 1 ? v : x)))}
+              />
+            </BracketGroup>
+          </div>
+        </div>
+      </div>
+
       {!locked && (
-        <div className="mt-6 flex justify-end">
+        <div className="mt-8 flex justify-end">
           <button
             onClick={save}
             disabled={saving}

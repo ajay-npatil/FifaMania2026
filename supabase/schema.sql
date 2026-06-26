@@ -23,6 +23,7 @@ create table if not exists matches (
   away_score int,
   status text not null default 'SCHEDULED', -- SCHEDULED | LIVE | FINISHED
   stage text, -- football-data.org stage, e.g. GROUP_STAGE, LAST_16, FINAL
+  winner_team text, -- the winning team's name (handles penalty shootouts), null for draws/unfinished
   created_at timestamptz not null default now()
 );
 
@@ -61,6 +62,7 @@ create table if not exists tournament_predictions (
   top_scorer text,      -- predicted top goal scorer (player name)
   country_points int,   -- 175 if correct, 0 if wrong, null until settled
   scorer_points int,    -- 175 if correct, 0 if wrong, null until settled
+  bracket jsonb,        -- knockout predictions: { qf:[], sf:[], final:[], winner, third }
   updated_at timestamptz not null default now()
 );
 

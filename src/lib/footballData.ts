@@ -16,6 +16,7 @@ export interface FdMatch {
   homeTeam: { name: string };
   awayTeam: { name: string };
   score: {
+    winner: string | null; // HOME_TEAM | AWAY_TEAM | DRAW | null
     fullTime: { home: number | null; away: number | null };
   };
 }

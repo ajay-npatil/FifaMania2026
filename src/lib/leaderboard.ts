@@ -1,4 +1,5 @@
 import { getSupabaseAdmin } from "@/lib/supabaseServer";
+import { computeBracketActuals, scoreBracket } from "@/lib/bracket";
 
 export interface Standing {
   user_id: string;
@@ -23,11 +24,13 @@ export async function computeStandings(
     .select("user_id, points_awarded")
     .not("points_awarded", "is", null);
 
-  // Predict-a-Winner bonuses (175 each for a correct top country / top scorer)
-  // count toward the same leaderboard total once the tournament is settled.
+  // Predict-a-Winner bonuses (top country / top scorer, plus the knockout
+  // bracket) count toward the same leaderboard total. Bracket points only
+  // include stages that are already revealed.
   const { data: tournament } = await supabase
     .from("tournament_predictions")
-    .select("user_id, country_points, scorer_points");
+    .select("user_id, country_points, scorer_points, bracket");
+  const bracketActuals = await computeBracketActuals(supabase);
 
   const totals = new Map<string, number>();
   for (const u of users ?? []) totals.set(u.id, 0);
@@ -35,7 +38,10 @@ export async function computeStandings(
     totals.set(p.user_id, (totals.get(p.user_id) ?? 0) + (p.points_awarded ?? 0));
   }
   for (const t of tournament ?? []) {
-    const bonus = (t.country_points ?? 0) + (t.scorer_points ?? 0);
+    const bonus =
+      (t.country_points ?? 0) +
+      (t.scorer_points ?? 0) +
+      scoreBracket(t.bracket, bracketActuals).total;
     totals.set(t.user_id, (totals.get(t.user_id) ?? 0) + bonus);
   }
 
