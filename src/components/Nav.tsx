@@ -39,9 +39,6 @@ export default function Nav() {
           <Link href="/predictions" className="hover:text-accent">
             Predictions
           </Link>
-          <Link href="/predict-winner" className="hover:text-accent">
-            Predict a Winner
-          </Link>
           <Link href="/results" className="hover:text-accent">
             Results
           </Link>
