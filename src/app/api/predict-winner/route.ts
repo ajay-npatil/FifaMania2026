@@ -158,12 +158,15 @@ export async function POST(req: NextRequest) {
   const qf = sanitizeTeams(b.qf, BRACKET_SLOTS.qf, teams);
   const sf = sanitizeTeams(b.sf, BRACKET_SLOTS.sf, new Set(qf));
   const finalists = sanitizeTeams(b.final, BRACKET_SLOTS.final, new Set(sf));
+  // Third place is a losing semi-finalist, so it can't be one of the finalists.
+  const finalistSet = new Set(finalists);
+  const thirdAllowed = new Set(sf.filter((t) => !finalistSet.has(t)));
   const bracket = {
     qf,
     sf,
     final: finalists,
-    winner: validTeam(b.winner, new Set(finalists)),
-    third: validTeam(b.third, new Set(sf)),
+    winner: validTeam(b.winner, finalistSet),
+    third: validTeam(b.third, thirdAllowed),
   };
 
   const bracketEmpty =

@@ -208,7 +208,13 @@ export default function PredictWinnerPage() {
     setSf(loadedSf);
     setFin(loadedFin);
     setWinner(d.bracket?.winner && allowedFin.has(d.bracket.winner) ? d.bracket.winner : "");
-    setThird(d.bracket?.third && allowedSf.has(d.bracket.third) ? d.bracket.third : "");
+    setThird(
+      d.bracket?.third &&
+        allowedSf.has(d.bracket.third) &&
+        !allowedFin.has(d.bracket.third)
+        ? d.bracket.third
+        : ""
+    );
     setLoading(false);
   }
 
@@ -263,6 +269,10 @@ export default function PredictWinnerPage() {
   const qfPicks = [...new Set(qf.filter(Boolean))];
   const sfPicks = [...new Set(sf.filter(Boolean))];
   const finPicks = [...new Set(fin.filter(Boolean))];
+  // Third place is decided between the losing semi-finalists, so a finalist
+  // can't also be third — third place comes from semi-finalists not in the final.
+  const finSet = new Set(finPicks);
+  const thirdOptions = sfPicks.filter((t) => !finSet.has(t));
 
   const changeQf = (i: number, v: string) => {
     const nextQf = qf.map((x, idx) => (idx === i ? v : x));
@@ -275,7 +285,7 @@ export default function PredictWinnerPage() {
     setSf(nextSf);
     setFin(nextFin);
     setWinner((w) => (w && allowedFin.has(w) ? w : ""));
-    setThird((t) => (t && allowedSf.has(t) ? t : ""));
+    setThird((t) => (t && allowedSf.has(t) && !allowedFin.has(t) ? t : ""));
   };
 
   const changeSf = (i: number, v: string) => {
@@ -286,7 +296,7 @@ export default function PredictWinnerPage() {
     setSf(nextSf);
     setFin(nextFin);
     setWinner((w) => (w && allowedFin.has(w) ? w : ""));
-    setThird((t) => (t && allowedSf.has(t) ? t : ""));
+    setThird((t) => (t && allowedSf.has(t) && !allowedFin.has(t) ? t : ""));
   };
 
   const changeFin = (i: number, v: string) => {
@@ -294,6 +304,8 @@ export default function PredictWinnerPage() {
     const allowedFin = new Set(nextFin.filter(Boolean));
     setFin(nextFin);
     setWinner((w) => (w && allowedFin.has(w) ? w : ""));
+    // A newly-named finalist can no longer be the third-place pick.
+    setThird((t) => (t && !allowedFin.has(t) ? t : ""));
   };
 
   const qfSlot = (i: number) => (
@@ -542,15 +554,15 @@ export default function PredictWinnerPage() {
               subtitle={`one of your semi-finalists · ${data.bracketConfig.third} pts`}
               points={data.bracketReveal.third ? data.bracketPoints.third : null}
             >
-              {sfPicks.length === 0 ? (
+              {thirdOptions.length === 0 ? (
                 <p className="text-xs text-zinc-400">
-                  Pick your semi-finalists first.
+                  Pick semi-finalists who aren&apos;t your finalists first.
                 </p>
               ) : (
                 <TeamSelect
                   value={third}
                   disabled={locked}
-                  teams={sfPicks}
+                  teams={thirdOptions}
                   mark={hitMark(
                     third,
                     data.bracketReveal.third,
