@@ -119,27 +119,67 @@ function TeamSelect({
   );
 }
 
-function BracketGroup({
-  title,
-  hint,
+// A single round (vertical column) in the bracket. Slots are spread evenly so
+// each inner round lines up with the midpoints of the round feeding into it.
+function Round({
+  header,
   points,
   children,
 }: {
-  title: string;
-  hint?: string;
+  header: string;
   points?: number | null;
   children: ReactNode;
 }) {
   return (
-    <div className="rounded-lg border border-zinc-200 dark:border-zinc-800 p-3">
-      <p className="text-xs font-semibold text-zinc-500 mb-2">
-        {title}
-        {hint ? ` · ${hint}` : ""}
+    <div className="flex flex-col w-32 shrink-0">
+      <div className="h-6 text-center text-[11px] font-semibold text-zinc-500 truncate">
+        {header}
         {points != null && points > 0 && (
-          <span className="text-green-600 dark:text-green-400"> · +{points}</span>
+          <span className="text-green-600 dark:text-green-400"> +{points}</span>
         )}
-      </p>
-      <div className="flex flex-col gap-2">{children}</div>
+      </div>
+      <div className="flex-1 flex flex-col justify-around">{children}</div>
+    </div>
+  );
+}
+
+// The "]" / "[" shaped lines joining a pair of feeder slots to the next round.
+function Conn({
+  side,
+  heightClass,
+  count,
+}: {
+  side: "l" | "r";
+  heightClass: string;
+  count: number;
+}) {
+  const border =
+    side === "l"
+      ? "border-t-2 border-b-2 border-r-2 rounded-r-md"
+      : "border-t-2 border-b-2 border-l-2 rounded-l-md";
+  return (
+    <div className="flex flex-col w-3 shrink-0">
+      <div className="h-6" />
+      <div className="flex-1 flex flex-col justify-around">
+        {Array.from({ length: count }).map((_, i) => (
+          <div
+            key={i}
+            className={`${heightClass} ${border} border-zinc-300 dark:border-zinc-700`}
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// A straight line (final → champion).
+function Straight() {
+  return (
+    <div className="flex flex-col w-3 shrink-0">
+      <div className="h-6" />
+      <div className="flex-1 flex flex-col justify-center">
+        <div className="border-t-2 border-zinc-300 dark:border-zinc-700" />
+      </div>
     </div>
   );
 }
@@ -232,6 +272,34 @@ export default function PredictWinnerPage() {
   const lockMs = new Date(data.lockAt).getTime() - now;
   const locked = data.locked || lockMs <= 0;
   const settled = !!data.results?.settled_at;
+
+  const qfSlot = (i: number) => (
+    <TeamSelect
+      value={qf[i]}
+      disabled={locked}
+      teams={data.countries}
+      mark={hitMark(qf[i], data.bracketReveal.qf, data.bracketActuals.qf)}
+      onChange={(v) => setQf((s) => s.map((x, idx) => (idx === i ? v : x)))}
+    />
+  );
+  const sfSlot = (i: number) => (
+    <TeamSelect
+      value={sf[i]}
+      disabled={locked}
+      teams={data.countries}
+      mark={hitMark(sf[i], data.bracketReveal.sf, data.bracketActuals.sf)}
+      onChange={(v) => setSf((s) => s.map((x, idx) => (idx === i ? v : x)))}
+    />
+  );
+  const finSlot = (i: number) => (
+    <TeamSelect
+      value={fin[i]}
+      disabled={locked}
+      teams={data.countries}
+      mark={hitMark(fin[i], data.bracketReveal.final, data.bracketActuals.final)}
+      onChange={(v) => setFin((s) => s.map((x, idx) => (idx === i ? v : x)))}
+    />
+  );
 
   return (
     <div className="max-w-5xl mx-auto px-4 py-10">
@@ -369,131 +437,107 @@ export default function PredictWinnerPage() {
           </p>
         )}
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-start">
-          {/* Left half */}
-          <div className="flex flex-col gap-4">
-            <BracketGroup
-              title="Quarter-finalists"
-              hint="left"
+        <div className="overflow-x-auto pb-2">
+          <div className="flex h-[480px] min-w-[940px] w-fit mx-auto">
+            {/* Left half: outer → inner */}
+            <Round
+              header="Quarter finals"
               points={data.bracketReveal.qf ? data.bracketPoints.qf : null}
             >
               {[0, 1, 2, 3].map((i) => (
-                <TeamSelect
-                  key={i}
-                  value={qf[i]}
-                  disabled={locked}
-                  teams={data.countries}
-                  mark={hitMark(qf[i], data.bracketReveal.qf, data.bracketActuals.qf)}
-                  onChange={(v) =>
-                    setQf((s) => s.map((x, idx) => (idx === i ? v : x)))
-                  }
-                />
+                <div key={i}>{qfSlot(i)}</div>
               ))}
-            </BracketGroup>
-            <BracketGroup
-              title="Semi-finalists"
-              hint="left"
+            </Round>
+            <Conn side="l" count={2} heightClass="h-1/4" />
+            <Round
+              header="Semi finals"
               points={data.bracketReveal.sf ? data.bracketPoints.sf : null}
             >
               {[0, 1].map((i) => (
-                <TeamSelect
-                  key={i}
-                  value={sf[i]}
-                  disabled={locked}
-                  teams={data.countries}
-                  mark={hitMark(sf[i], data.bracketReveal.sf, data.bracketActuals.sf)}
-                  onChange={(v) =>
-                    setSf((s) => s.map((x, idx) => (idx === i ? v : x)))
-                  }
-                />
+                <div key={i}>{sfSlot(i)}</div>
               ))}
-            </BracketGroup>
-            <BracketGroup
-              title="Finalist"
-              hint="left"
+            </Round>
+            <Conn side="l" count={1} heightClass="h-1/2" />
+            <Round
+              header="Final"
               points={data.bracketReveal.final ? data.bracketPoints.final : null}
             >
-              <TeamSelect
-                value={fin[0]}
-                disabled={locked}
-                teams={data.countries}
-                mark={hitMark(fin[0], data.bracketReveal.final, data.bracketActuals.final)}
-                onChange={(v) => setFin((s) => s.map((x, idx) => (idx === 0 ? v : x)))}
-              />
-            </BracketGroup>
-          </div>
+              {finSlot(0)}
+            </Round>
+            <Straight />
 
-          {/* Center */}
-          <div className="flex flex-col gap-4">
-            <div className="rounded-lg border-2 border-accent/50 p-4 text-center">
-              <p className="font-semibold mb-2">🏆 Winner</p>
-              <TeamSelect
-                value={winner}
-                disabled={locked}
-                teams={data.countries}
-                mark={hitMark(
-                  winner,
-                  data.bracketReveal.winner,
-                  data.bracketActuals.winner ? [data.bracketActuals.winner] : []
-                )}
-                onChange={setWinner}
-              />
+            {/* Champion */}
+            <div className="flex flex-col w-40 shrink-0">
+              <div className="h-6 text-center text-[11px] font-semibold text-zinc-500">
+                Champions
+              </div>
+              <div className="flex-1 flex flex-col items-center justify-center">
+                <div className="w-full rounded-lg border-2 border-accent/60 p-2 text-center">
+                  <p className="text-xs font-semibold mb-1">
+                    🏆 Winner
+                    {data.bracketReveal.winner && data.bracketPoints.winner > 0 && (
+                      <span className="text-green-600 dark:text-green-400">
+                        {" "}
+                        +{data.bracketPoints.winner}
+                      </span>
+                    )}
+                  </p>
+                  <TeamSelect
+                    value={winner}
+                    disabled={locked}
+                    teams={data.countries}
+                    mark={hitMark(
+                      winner,
+                      data.bracketReveal.winner,
+                      data.bracketActuals.winner ? [data.bracketActuals.winner] : []
+                    )}
+                    onChange={setWinner}
+                  />
+                </div>
+              </div>
             </div>
-            <div className="rounded-lg border border-zinc-200 dark:border-zinc-800 p-4 text-center">
-              <p className="font-semibold mb-2">🥉 Third place</p>
-              <TeamSelect
-                value={third}
-                disabled={locked}
-                teams={data.countries}
-                mark={hitMark(
-                  third,
-                  data.bracketReveal.third,
-                  data.bracketActuals.third ? [data.bracketActuals.third] : []
-                )}
-                onChange={setThird}
-              />
-            </div>
-          </div>
 
-          {/* Right half */}
-          <div className="flex flex-col gap-4">
-            <BracketGroup title="Quarter-finalists" hint="right">
-              {[4, 5, 6, 7].map((i) => (
-                <TeamSelect
-                  key={i}
-                  value={qf[i]}
-                  disabled={locked}
-                  teams={data.countries}
-                  mark={hitMark(qf[i], data.bracketReveal.qf, data.bracketActuals.qf)}
-                  onChange={(v) =>
-                    setQf((s) => s.map((x, idx) => (idx === i ? v : x)))
-                  }
-                />
-              ))}
-            </BracketGroup>
-            <BracketGroup title="Semi-finalists" hint="right">
+            <Straight />
+            {/* Right half: inner → outer */}
+            <Round header="Final">{finSlot(1)}</Round>
+            <Conn side="r" count={1} heightClass="h-1/2" />
+            <Round header="Semi finals">
               {[2, 3].map((i) => (
-                <TeamSelect
-                  key={i}
-                  value={sf[i]}
-                  disabled={locked}
-                  teams={data.countries}
-                  mark={hitMark(sf[i], data.bracketReveal.sf, data.bracketActuals.sf)}
-                  onChange={(v) =>
-                    setSf((s) => s.map((x, idx) => (idx === i ? v : x)))
-                  }
-                />
+                <div key={i}>{sfSlot(i)}</div>
               ))}
-            </BracketGroup>
-            <BracketGroup title="Finalist" hint="right">
-              <TeamSelect
-                value={fin[1]}
-                disabled={locked}
-                teams={data.countries}
-                mark={hitMark(fin[1], data.bracketReveal.final, data.bracketActuals.final)}
-                onChange={(v) => setFin((s) => s.map((x, idx) => (idx === 1 ? v : x)))}
-              />
-            </BracketGroup>
+            </Round>
+            <Conn side="r" count={2} heightClass="h-1/4" />
+            <Round header="Quarter finals">
+              {[4, 5, 6, 7].map((i) => (
+                <div key={i}>{qfSlot(i)}</div>
+              ))}
+            </Round>
+          </div>
+        </div>
+
+        {/* Third place, below the centre like a real bracket sheet */}
+        <div className="flex justify-center mt-2">
+          <div className="w-56 rounded-lg border border-zinc-200 dark:border-zinc-800 p-2 text-center">
+            <p className="text-xs font-semibold mb-1">
+              🥉 Third place
+              {data.bracketReveal.third && data.bracketPoints.third > 0 && (
+                <span className="text-green-600 dark:text-green-400">
+                  {" "}
+                  +{data.bracketPoints.third}
+                </span>
+              )}
+            </p>
+            <TeamSelect
+              value={third}
+              disabled={locked}
+              teams={data.countries}
+              mark={hitMark(
+                third,
+                data.bracketReveal.third,
+                data.bracketActuals.third ? [data.bracketActuals.third] : []
+              )}
+              onChange={setThird}
+            />
           </div>
         </div>
       </div>
