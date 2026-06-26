@@ -37,8 +37,16 @@ export default function PredictionsPage() {
         <button onClick={() => select("match")} className={tabClass("match")}>
           Match Predictor
         </button>
-        <button onClick={() => select("winner")} className={tabClass("winner")}>
+        <button
+          onClick={() => select("winner")}
+          className={`${tabClass("winner")} flex items-center gap-1.5 ${
+            tab === "winner" ? "" : "text-accent"
+          }`}
+        >
           Predict a Winner
+          <span className="rounded-full bg-accent text-accent-foreground text-[10px] font-bold leading-none px-1.5 py-0.5 animate-pulse">
+            NEW
+          </span>
         </button>
       </div>
 
