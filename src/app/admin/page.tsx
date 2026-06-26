@@ -12,6 +12,10 @@ interface AdminUser {
 export default function AdminPage() {
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<string | null>(null);
+  const [snapping, setSnapping] = useState(false);
+  const [snapResult, setSnapResult] = useState<string | null>(null);
+  const [settling, setSettling] = useState(false);
+  const [settleResult, setSettleResult] = useState<string | null>(null);
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [usersLoading, setUsersLoading] = useState(true);
   const [deletingId, setDeletingId] = useState<string | null>(null);
@@ -43,6 +47,48 @@ export default function AdminPage() {
       return;
     }
     setResult(`Synced ${data.upserted} matches, scored ${data.scored} predictions.`);
+  }
+
+  async function snapshot() {
+    const confirmed = window.confirm(
+      "Freeze the current standings? The leaderboard will show movement (▲/▼ and points gained) relative to this moment. Do this right before a round begins."
+    );
+    if (!confirmed) return;
+
+    setSnapping(true);
+    setSnapResult(null);
+    const res = await fetch("/api/admin/snapshot", { method: "POST" });
+    const data = await res.json();
+    setSnapping(false);
+    if (!res.ok) {
+      setSnapResult(data.error ?? "Snapshot failed.");
+      return;
+    }
+    setSnapResult(`Captured standings for ${data.captured} players.`);
+  }
+
+  async function settleTournament() {
+    const confirmed = window.confirm(
+      "Settle Predict-a-Winner? This reads the final top-scoring country and top scorer and awards 175 points for each correct pick. Only do this once the tournament is over (it's safe to re-run if results change)."
+    );
+    if (!confirmed) return;
+
+    setSettling(true);
+    setSettleResult(null);
+    const res = await fetch("/api/admin/settle-tournament", { method: "POST" });
+    const data = await res.json();
+    setSettling(false);
+    if (!res.ok) {
+      setSettleResult(data.error ?? "Settle failed.");
+      return;
+    }
+    setSettleResult(
+      `Settled ${data.settled} entries. Top country: ${
+        data.countryLeaders?.join(", ") || "—"
+      } (${data.countryWinners} winners). Top scorer: ${
+        data.scorerLeaders?.join(", ") || "—"
+      } (${data.scorerWinners} winners).`
+    );
   }
 
   async function deleteUser(u: AdminUser) {
@@ -111,6 +157,41 @@ export default function AdminPage() {
           {loading ? "Syncing..." : "Sync World Cup fixtures"}
         </button>
         {result && <p className="mt-4 text-sm">{result}</p>}
+      </section>
+
+      <section className="mb-10">
+        <h2 className="text-lg font-semibold mb-2">Leaderboard movers</h2>
+        <p className="text-sm text-zinc-500 mb-4">
+          Freezes the current standings. Afterwards the leaderboard shows each
+          player&apos;s rank movement (▲/▼) and points gained since this
+          snapshot. Capture one right before a round begins (e.g. before Round
+          of 32).
+        </p>
+        <button
+          onClick={snapshot}
+          disabled={snapping}
+          className="rounded-full bg-accent text-accent-foreground px-5 py-2.5 text-sm font-medium hover:opacity-90 disabled:opacity-50"
+        >
+          {snapping ? "Capturing..." : "Capture standings snapshot"}
+        </button>
+        {snapResult && <p className="mt-4 text-sm">{snapResult}</p>}
+      </section>
+
+      <section className="mb-10">
+        <h2 className="text-lg font-semibold mb-2">Settle Predict-a-Winner</h2>
+        <p className="text-sm text-zinc-500 mb-4">
+          Awards 175 points for each correct tournament-long pick (top-scoring
+          country and golden boot). Run once after the final. Re-running is safe
+          and just recomputes from the latest results.
+        </p>
+        <button
+          onClick={settleTournament}
+          disabled={settling}
+          className="rounded-full bg-accent text-accent-foreground px-5 py-2.5 text-sm font-medium hover:opacity-90 disabled:opacity-50"
+        >
+          {settling ? "Settling..." : "Settle Predict-a-Winner"}
+        </button>
+        {settleResult && <p className="mt-4 text-sm">{settleResult}</p>}
       </section>
 
       <section>

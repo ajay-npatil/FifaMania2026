@@ -32,6 +32,7 @@ export async function POST() {
           home_score,
           away_score,
           status,
+          stage: m.stage,
         },
         { onConflict: "external_id" }
       )

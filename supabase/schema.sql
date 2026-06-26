@@ -22,6 +22,7 @@ create table if not exists matches (
   home_score int, -- null until the match has finished
   away_score int,
   status text not null default 'SCHEDULED', -- SCHEDULED | LIVE | FINISHED
+  stage text, -- football-data.org stage, e.g. GROUP_STAGE, LAST_16, FINAL
   created_at timestamptz not null default now()
 );
 
@@ -37,9 +38,46 @@ create table if not exists predictions (
   unique (user_id, match_id)
 );
 
+-- Leaderboard snapshots: a frozen copy of every user's rank + points at a
+-- moment in time (captured by an admin, e.g. just before a round begins).
+-- The leaderboard compares "now" against the most recent snapshot to show
+-- movers (rank ▲/▼ and points gained since).
+create table if not exists leaderboard_snapshots (
+  id uuid primary key default uuid_generate_v4(),
+  batch_id uuid not null, -- groups all rows captured together
+  user_id uuid not null references users(id) on delete cascade,
+  rank int not null,
+  points int not null,
+  captured_at timestamptz not null default now()
+);
+
+-- Predict-a-Winner: each user's tournament-long side bets. One row per user:
+-- which country they think will score the most goals, and which player will be
+-- top scorer. Settled once at the end of the tournament — 175 points for each
+-- correct pick.
+create table if not exists tournament_predictions (
+  user_id uuid primary key references users(id) on delete cascade,
+  top_country text,     -- predicted highest-scoring country
+  top_scorer text,      -- predicted top goal scorer (player name)
+  country_points int,   -- 175 if correct, 0 if wrong, null until settled
+  scorer_points int,    -- 175 if correct, 0 if wrong, null until settled
+  updated_at timestamptz not null default now()
+);
+
+-- The settled actual answers (single row, id always 1), so the page can show
+-- "Top country / Top scorer" after the admin settles.
+create table if not exists tournament_results (
+  id int primary key default 1,
+  top_country text,
+  top_scorer text,
+  settled_at timestamptz,
+  constraint tournament_results_single_row check (id = 1)
+);
+
 create index if not exists idx_predictions_match on predictions(match_id);
 create index if not exists idx_predictions_user on predictions(user_id);
 create index if not exists idx_matches_kickoff on matches(kickoff_at);
+create index if not exists idx_snapshots_captured on leaderboard_snapshots(captured_at desc);
 
 -- Row Level Security: the app talks to Supabase using the service-role key
 -- from server-side API routes only, so RLS can stay restrictive (deny-all
@@ -47,3 +85,6 @@ create index if not exists idx_matches_kickoff on matches(kickoff_at);
 alter table users enable row level security;
 alter table matches enable row level security;
 alter table predictions enable row level security;
+alter table leaderboard_snapshots enable row level security;
+alter table tournament_predictions enable row level security;
+alter table tournament_results enable row level security;

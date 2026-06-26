@@ -1,24 +1,47 @@
 import { NextResponse } from "next/server";
 import { getSupabaseAdmin } from "@/lib/supabaseServer";
+import { computeStandings } from "@/lib/leaderboard";
 
 export async function GET() {
   const supabase = getSupabaseAdmin();
 
-  const { data: users } = await supabase.from("users").select("id, display_name");
-  const { data: predictions } = await supabase
-    .from("predictions")
-    .select("user_id, points_awarded")
-    .not("points_awarded", "is", null);
+  const standings = await computeStandings(supabase);
 
-  const totals = new Map<string, number>();
-  for (const u of users ?? []) totals.set(u.id, 0);
-  for (const p of predictions ?? []) {
-    totals.set(p.user_id, (totals.get(p.user_id) ?? 0) + (p.points_awarded ?? 0));
+  // Most recent snapshot, if any, to compute movement against.
+  const { data: latest } = await supabase
+    .from("leaderboard_snapshots")
+    .select("batch_id, captured_at")
+    .order("captured_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  const prev = new Map<string, { rank: number; points: number }>();
+  if (latest) {
+    const { data: snapRows } = await supabase
+      .from("leaderboard_snapshots")
+      .select("user_id, rank, points")
+      .eq("batch_id", latest.batch_id);
+    for (const r of snapRows ?? []) {
+      prev.set(r.user_id, { rank: r.rank, points: r.points });
+    }
   }
 
-  const leaderboard = (users ?? [])
-    .map((u) => ({ display_name: u.display_name, points: totals.get(u.id) ?? 0 }))
-    .sort((a, b) => b.points - a.points);
+  const leaderboard = standings.map((s) => {
+    const before = prev.get(s.user_id);
+    return {
+      display_name: s.display_name,
+      points: s.points,
+      rank: s.rank,
+      // Positive = climbed, negative = dropped, null = no prior snapshot.
+      rankDelta: before ? before.rank - s.rank : null,
+      pointsGained: before ? s.points - before.points : null,
+      isNew: latest ? !before : false,
+    };
+  });
 
-  return NextResponse.json({ leaderboard });
+  return NextResponse.json({
+    leaderboard,
+    hasSnapshot: !!latest,
+    snapshotAt: latest?.captured_at ?? null,
+  });
 }
