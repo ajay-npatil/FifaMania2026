@@ -146,10 +146,10 @@ function StageCard({
 }) {
   return (
     <div
-      className={`rounded-lg p-4 bg-background/90 backdrop-blur-sm ${
+      className={`rounded-lg p-4 bg-background/70 backdrop-blur-sm ${
         accent
-          ? "border-2 border-accent/60"
-          : "border-2 border-zinc-800 dark:border-zinc-400"
+          ? "border border-accent/60"
+          : "border border-zinc-200 dark:border-zinc-800"
       }`}
     >
       <div className="flex items-baseline justify-between gap-2 mb-3">
@@ -384,7 +384,7 @@ export default function PredictWinner() {
       )}
 
       {settled && (
-        <div className="mb-6 rounded-lg border-2 border-zinc-800 dark:border-zinc-400 bg-background/90 backdrop-blur-sm p-4">
+        <div className="mb-6 border border-zinc-200 dark:border-zinc-800 rounded-lg p-4 bg-background/70 backdrop-blur-sm">
           <h2 className="font-semibold mb-2">🏆 Results</h2>
           <p className="text-sm">
             Top-scoring country:{" "}
@@ -406,7 +406,7 @@ export default function PredictWinner() {
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 items-start">
         {/* Country pick */}
-        <div className="rounded-lg border-2 border-zinc-800 dark:border-zinc-400 bg-background/90 backdrop-blur-sm p-4">
+        <div className="border border-zinc-200 dark:border-zinc-800 rounded-lg p-4 bg-background/70 backdrop-blur-sm">
           <label className="block font-medium mb-2">
             Country to score the most goals
           </label>
@@ -433,7 +433,7 @@ export default function PredictWinner() {
         </div>
 
         {/* Top scorer pick */}
-        <div className="rounded-lg border-2 border-zinc-800 dark:border-zinc-400 bg-background/90 backdrop-blur-sm p-4">
+        <div className="border border-zinc-200 dark:border-zinc-800 rounded-lg p-4 bg-background/70 backdrop-blur-sm">
           <label className="block font-medium mb-2">Golden boot (top scorer)</label>
           {data.scorers.length === 0 ? (
             <p className="text-sm text-zinc-500">
@@ -472,7 +472,7 @@ export default function PredictWinner() {
         </div>
 
         {/* Golden Ball pick */}
-        <div className="rounded-lg border-2 border-zinc-800 dark:border-zinc-400 bg-background/90 backdrop-blur-sm p-4">
+        <div className="border border-zinc-200 dark:border-zinc-800 rounded-lg p-4 bg-background/70 backdrop-blur-sm">
           <label className="block font-medium mb-2">
             Golden Ball (best player)
           </label>
@@ -499,7 +499,7 @@ export default function PredictWinner() {
         </div>
 
         {/* Golden Glove pick */}
-        <div className="rounded-lg border-2 border-zinc-800 dark:border-zinc-400 bg-background/90 backdrop-blur-sm p-4">
+        <div className="border border-zinc-200 dark:border-zinc-800 rounded-lg p-4 bg-background/70 backdrop-blur-sm">
           <label className="block font-medium mb-2">
             Golden Glove (best goalkeeper)
           </label>
