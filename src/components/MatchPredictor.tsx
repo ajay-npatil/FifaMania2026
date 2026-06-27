@@ -32,6 +32,7 @@ export default function MatchPredictor() {
   const [message, setMessage] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [now, setNow] = useState(() => Date.now());
+  const [openPicks, setOpenPicks] = useState<Set<string>>(() => new Set());
 
   async function load() {
     const res = await fetch("/api/predictions");
@@ -65,18 +66,19 @@ export default function MatchPredictor() {
     return now >= lockTime(kickoff_at);
   }
 
-  function timeLeftLabel(kickoff_at: string) {
+  // Compact time-until-lock, e.g. "12H 15M" (top two units only).
+  function compactCountdown(kickoff_at: string) {
     const ms = lockTime(kickoff_at) - now;
-    if (ms <= 0) return null;
-    const totalSeconds = Math.floor(ms / 1000);
-    const days = Math.floor(totalSeconds / 86400);
-    const hours = Math.floor((totalSeconds % 86400) / 3600);
-    const minutes = Math.floor((totalSeconds % 3600) / 60);
-    const seconds = totalSeconds % 60;
-    if (days > 0) return `${days}d ${hours}h left to predict`;
-    if (hours > 0) return `${hours}h ${minutes}m left to predict`;
-    if (minutes > 0) return `${minutes}m ${seconds}s left to predict`;
-    return `${seconds}s left to predict`;
+    if (ms <= 0) return "";
+    const total = Math.floor(ms / 1000);
+    const d = Math.floor(total / 86400);
+    const h = Math.floor((total % 86400) / 3600);
+    const m = Math.floor((total % 3600) / 60);
+    const s = total % 60;
+    if (d > 0) return `${d}D ${h}H`;
+    if (h > 0) return `${h}H ${m}M`;
+    if (m > 0) return `${m}M ${s}S`;
+    return `${s}S`;
   }
 
   // Only show matches that haven't finished yet — completed matches move to
@@ -88,6 +90,24 @@ export default function MatchPredictor() {
         .sort((a, b) => +new Date(a.kickoff_at) - +new Date(b.kickoff_at)),
     [matches]
   );
+
+  // Group the (already date-sorted) upcoming matches by calendar day.
+  const groupedByDay = useMemo(() => {
+    const groups: { key: string; label: string; matches: Match[] }[] = [];
+    for (const m of upcoming) {
+      const date = new Date(m.kickoff_at);
+      const key = date.toDateString();
+      const label = date.toLocaleDateString(undefined, {
+        weekday: "long",
+        month: "short",
+        day: "numeric",
+      });
+      const last = groups[groups.length - 1];
+      if (last && last.key === key) last.matches.push(m);
+      else groups.push({ key, label, matches: [m] });
+    }
+    return groups;
+  }, [upcoming]);
 
   async function saveAll() {
     setSaving(true);
@@ -162,71 +182,117 @@ export default function MatchPredictor() {
         </p>
       )}
 
-      <div className="flex flex-col gap-3">
-        {upcoming.map((m) => {
-          const existing = predictions[m.id];
-          const locked = isLocked(m.kickoff_at);
-          const countdown = !locked ? timeLeftLabel(m.kickoff_at) : null;
-          const urgent = !locked && lockTime(m.kickoff_at) - now <= 60 * 60 * 1000;
-          const d = draft[m.id] ?? {
-            home: existing ? String(existing.predicted_home_score) : "",
-            away: existing ? String(existing.predicted_away_score) : "",
-          };
-          return (
-            <div
-              key={m.id}
-              className="border border-zinc-200 dark:border-zinc-800 rounded-lg p-4 bg-background/70 backdrop-blur-sm"
-            >
-              <div className="flex items-center justify-between gap-4">
-                <div>
-                  <p className="font-medium">
-                    {m.home_team} {flagFor(m.home_team)} vs {m.away_team} {flagFor(m.away_team)}
-                  </p>
-                  <p className="text-xs text-zinc-500">
-                    {new Date(m.kickoff_at).toLocaleString()} · {m.status}
-                    {locked && !existing && " · Locked (no prediction submitted)"}
-                  </p>
-                  {countdown && (
-                    <p
-                      className={
-                        urgent
-                          ? "text-xs font-medium text-red-600 dark:text-red-400 mt-0.5"
-                          : "text-xs font-medium text-green-600 dark:text-green-400 mt-0.5"
-                      }
-                    >
-                      ⏱ {countdown}
-                    </p>
-                  )}
-                </div>
-                <div className="flex items-center gap-2">
-                  <input
-                    type="number"
-                    min={0}
-                    className="w-14 border border-zinc-300 dark:border-zinc-700 rounded-md px-2 py-1 bg-transparent text-center focus:outline-none focus:border-accent"
-                    value={d.home}
-                    disabled={locked}
-                    onChange={(e) =>
-                      setDraft((s) => ({ ...s, [m.id]: { ...d, home: e.target.value } }))
-                    }
-                  />
-                  <span>-</span>
-                  <input
-                    type="number"
-                    min={0}
-                    className="w-14 border border-zinc-300 dark:border-zinc-700 rounded-md px-2 py-1 bg-transparent text-center focus:outline-none focus:border-accent"
-                    value={d.away}
-                    disabled={locked}
-                    onChange={(e) =>
-                      setDraft((s) => ({ ...s, [m.id]: { ...d, away: e.target.value } }))
-                    }
-                  />
-                  {locked && <span className="text-xs text-zinc-500">Locked</span>}
-                </div>
-              </div>
-              {locked && <AllPredictions matchId={m.id} />}
+      <div className="flex flex-col gap-4">
+        {groupedByDay.map((group) => (
+          <section
+            key={group.key}
+            className="rounded-lg border border-zinc-200 dark:border-zinc-800 bg-background/70 backdrop-blur-sm overflow-hidden"
+          >
+            <h2 className="px-3 py-2 text-sm font-semibold bg-zinc-100/70 dark:bg-zinc-900/50 border-b border-zinc-200 dark:border-zinc-800">
+              {group.label}
+            </h2>
+            <div className="divide-y divide-zinc-200 dark:divide-zinc-800">
+              {group.matches.map((m) => {
+                const existing = predictions[m.id];
+                const locked = isLocked(m.kickoff_at);
+                const urgent =
+                  !locked && lockTime(m.kickoff_at) - now <= 60 * 60 * 1000;
+                const d = draft[m.id] ?? {
+                  home: existing ? String(existing.predicted_home_score) : "",
+                  away: existing ? String(existing.predicted_away_score) : "",
+                };
+                const time = new Date(m.kickoff_at).toLocaleTimeString(undefined, {
+                  hour: "2-digit",
+                  minute: "2-digit",
+                });
+                const inputClass =
+                  "w-10 border border-zinc-300 dark:border-zinc-700 rounded-md px-1.5 py-1 bg-transparent text-center text-sm focus:outline-none focus:border-accent disabled:opacity-50";
+                return (
+                  <div key={m.id} className="px-3 py-2.5">
+                    <div className="flex items-center gap-2.5">
+                      <span className="w-12 shrink-0 text-xs tabular-nums text-zinc-500">
+                        {time}
+                      </span>
+                      <span
+                        className="shrink-0"
+                        title={locked ? "Locked" : "Open for predictions"}
+                      >
+                        {locked ? "🔒" : "🔓"}
+                      </span>
+                      <span className="flex-1 min-w-0 text-sm">
+                        {flagFor(m.home_team)} {m.home_team}{" "}
+                        <span className="text-zinc-400">v</span> {m.away_team}{" "}
+                        {flagFor(m.away_team)}
+                      </span>
+                      <div className="flex items-center gap-1 shrink-0">
+                        <input
+                          type="number"
+                          min={0}
+                          aria-label={`${m.home_team} score`}
+                          className={inputClass}
+                          value={d.home}
+                          disabled={locked}
+                          onChange={(e) =>
+                            setDraft((s) => ({ ...s, [m.id]: { ...d, home: e.target.value } }))
+                          }
+                        />
+                        <span className="text-zinc-400">-</span>
+                        <input
+                          type="number"
+                          min={0}
+                          aria-label={`${m.away_team} score`}
+                          className={inputClass}
+                          value={d.away}
+                          disabled={locked}
+                          onChange={(e) =>
+                            setDraft((s) => ({ ...s, [m.id]: { ...d, away: e.target.value } }))
+                          }
+                        />
+                      </div>
+                      <span
+                        className={`w-16 shrink-0 text-right text-xs tabular-nums ${
+                          urgent
+                            ? "text-red-600 dark:text-red-400 font-medium"
+                            : "text-zinc-500"
+                        }`}
+                      >
+                        {locked ? "" : compactCountdown(m.kickoff_at)}
+                      </span>
+                    </div>
+
+                    {locked && !existing && (
+                      <p className="text-[11px] text-zinc-400 mt-1 pl-[3.625rem]">
+                        No prediction submitted
+                      </p>
+                    )}
+                    {locked && (
+                      <details
+                        className="mt-1 pl-[3.625rem]"
+                        onToggle={(e) =>
+                          setOpenPicks((s) => {
+                            const next = new Set(s);
+                            if (e.currentTarget.open) next.add(m.id);
+                            else next.delete(m.id);
+                            return next;
+                          })
+                        }
+                      >
+                        <summary className="text-[11px] text-zinc-500 cursor-pointer hover:text-accent select-none">
+                          Everyone&apos;s picks
+                        </summary>
+                        {openPicks.has(m.id) && (
+                          <div className="mt-1">
+                            <AllPredictions matchId={m.id} />
+                          </div>
+                        )}
+                      </details>
+                    )}
+                  </div>
+                );
+              })}
             </div>
-          );
-        })}
+          </section>
+        ))}
       </div>
 
       {upcoming.length > 0 && (
