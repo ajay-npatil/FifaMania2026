@@ -25,6 +25,7 @@ export default function ResultsPage() {
   const [matches, setMatches] = useState<Match[]>([]);
   const [predictions, setPredictions] = useState<Record<string, Prediction>>({});
   const [loading, setLoading] = useState(true);
+  const [openPicks, setOpenPicks] = useState<Set<string>>(() => new Set());
 
   async function load() {
     const res = await fetch("/api/predictions");
@@ -53,6 +54,24 @@ export default function ResultsPage() {
     [matches]
   );
 
+  // Group finished matches by day (most recent day first).
+  const groupedByDay = useMemo(() => {
+    const groups: { key: string; label: string; matches: Match[] }[] = [];
+    for (const m of finished) {
+      const date = new Date(m.kickoff_at);
+      const key = date.toDateString();
+      const label = date.toLocaleDateString(undefined, {
+        weekday: "long",
+        month: "short",
+        day: "numeric",
+      });
+      const last = groups[groups.length - 1];
+      if (last && last.key === key) last.matches.push(m);
+      else groups.push({ key, label, matches: [m] });
+    }
+    return groups;
+  }, [finished]);
+
   const totalPoints = useMemo(
     () =>
       finished.reduce((sum, m) => {
@@ -68,57 +87,94 @@ export default function ResultsPage() {
     <div className="max-w-3xl mx-auto px-4 py-10">
       <h1 className="text-2xl font-bold mb-2">Your results</h1>
       <p className="text-sm text-zinc-500 mb-6">
-        Your prediction vs the actual result for every finished match. Total so far:{" "}
-        <span className="font-semibold text-accent">{totalPoints} points</span>.
+        Your prediction vs the actual result for every finished match. Total so
+        far: <span className="font-semibold text-accent">{totalPoints} points</span>.
       </p>
 
       {finished.length === 0 && (
         <p className="text-sm text-zinc-500">No finished matches yet.</p>
       )}
 
-      <div className="flex flex-col gap-3">
-        {finished.map((m) => {
-          const p = predictions[m.id];
-          return (
-            <div
-              key={m.id}
-              className="border border-zinc-200 dark:border-zinc-800 rounded-lg p-4 bg-background/70 backdrop-blur-sm"
-            >
-              <div className="flex items-center justify-between gap-4">
-                <div>
-                  <p className="font-medium">
-                    {m.home_team} {flagFor(m.home_team)} vs {m.away_team} {flagFor(m.away_team)}
-                  </p>
-                  <p className="text-xs text-zinc-500">
-                    {new Date(m.kickoff_at).toLocaleDateString()}
-                  </p>
-                </div>
+      <div className="flex flex-col gap-4">
+        {groupedByDay.map((group) => (
+          <section
+            key={group.key}
+            className="rounded-lg border border-zinc-200 dark:border-zinc-800 bg-background/70 backdrop-blur-sm overflow-hidden"
+          >
+            <h2 className="px-3 py-2 text-sm font-semibold bg-zinc-100/70 dark:bg-zinc-900/50 border-b border-zinc-200 dark:border-zinc-800">
+              {group.label}
+            </h2>
+            <div className="divide-y divide-zinc-200 dark:divide-zinc-800">
+              {group.matches.map((m) => {
+                const p = predictions[m.id];
+                const time = new Date(m.kickoff_at).toLocaleTimeString(undefined, {
+                  hour: "2-digit",
+                  minute: "2-digit",
+                });
+                const pts = p?.points_awarded;
+                const pointsLabel = !p
+                  ? "—"
+                  : pts == null
+                  ? "…"
+                  : pts > 0
+                  ? `+${pts}`
+                  : "0";
+                const pointsClass =
+                  pts && pts > 0
+                    ? "text-green-600 dark:text-green-400"
+                    : "text-zinc-500";
+                return (
+                  <div key={m.id} className="px-3 py-2.5">
+                    <div className="flex items-center gap-2.5">
+                      <span className="w-12 shrink-0 text-xs tabular-nums text-zinc-500">
+                        {time}
+                      </span>
+                      <span className="flex-1 min-w-0 text-sm">
+                        {flagFor(m.home_team)} {m.home_team}{" "}
+                        <strong className="tabular-nums">
+                          {m.home_score} – {m.away_score}
+                        </strong>{" "}
+                        {m.away_team} {flagFor(m.away_team)}
+                      </span>
+                      <span className="shrink-0 text-xs text-zinc-500 tabular-nums">
+                        You{" "}
+                        {p
+                          ? `${p.predicted_home_score}-${p.predicted_away_score}`
+                          : "—"}
+                      </span>
+                      <span
+                        className={`w-10 shrink-0 text-right text-sm font-semibold tabular-nums ${pointsClass}`}
+                      >
+                        {pointsLabel}
+                      </span>
+                    </div>
 
-                <div className="flex items-center gap-6 text-sm">
-                  <div className="text-center">
-                    <p className="text-xs text-zinc-500">Your prediction</p>
-                    <p className="font-medium">
-                      {p ? `${p.predicted_home_score} - ${p.predicted_away_score}` : "—"}
-                    </p>
+                    <details
+                      className="mt-1 pl-[3.625rem]"
+                      onToggle={(e) =>
+                        setOpenPicks((s) => {
+                          const next = new Set(s);
+                          if (e.currentTarget.open) next.add(m.id);
+                          else next.delete(m.id);
+                          return next;
+                        })
+                      }
+                    >
+                      <summary className="text-[11px] text-zinc-500 cursor-pointer hover:text-accent select-none">
+                        Everyone&apos;s picks
+                      </summary>
+                      {openPicks.has(m.id) && (
+                        <div className="mt-1">
+                          <AllPredictions matchId={m.id} />
+                        </div>
+                      )}
+                    </details>
                   </div>
-                  <div className="text-center">
-                    <p className="text-xs text-zinc-500">Actual result</p>
-                    <p className="font-medium">
-                      {m.home_score} - {m.away_score}
-                    </p>
-                  </div>
-                  <div className="text-center">
-                    <p className="text-xs text-zinc-500">Points</p>
-                    <p className="font-semibold">
-                      {p ? p.points_awarded ?? "pending" : "—"}
-                    </p>
-                  </div>
-                </div>
-              </div>
-              <AllPredictions matchId={m.id} />
+                );
+              })}
             </div>
-          );
-        })}
+          </section>
+        ))}
       </div>
     </div>
   );
