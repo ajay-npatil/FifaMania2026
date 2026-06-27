@@ -42,11 +42,6 @@ export default function Nav() {
           <Link href="/results" className="hover:text-accent">
             Results
           </Link>
-          {loaded && user?.is_admin && (
-            <Link href="/tournament-picks" className="hover:text-accent">
-              Everyone&apos;s Picks
-            </Link>
-          )}
           <Link href="/leaderboard" className="hover:text-accent">
             Leaderboard
           </Link>
