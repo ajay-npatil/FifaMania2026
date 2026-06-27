@@ -72,7 +72,6 @@ export default function MatchPredictor() {
   const [message, setMessage] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [now, setNow] = useState(() => Date.now());
-  const [openPicks, setOpenPicks] = useState<Set<string>>(() => new Set());
 
   async function load() {
     const res = await fetch("/api/predictions");
@@ -305,26 +304,9 @@ export default function MatchPredictor() {
                       </p>
                     )}
                     {locked && (
-                      <details
-                        className="mt-1 pl-[3.625rem]"
-                        onToggle={(e) =>
-                          setOpenPicks((s) => {
-                            const next = new Set(s);
-                            if (e.currentTarget.open) next.add(m.id);
-                            else next.delete(m.id);
-                            return next;
-                          })
-                        }
-                      >
-                        <summary className="text-[11px] text-zinc-500 cursor-pointer hover:text-accent select-none">
-                          Everyone&apos;s picks
-                        </summary>
-                        {openPicks.has(m.id) && (
-                          <div className="mt-1">
-                            <AllPredictions matchId={m.id} />
-                          </div>
-                        )}
-                      </details>
+                      <div className="pl-[3.625rem]">
+                        <AllPredictions matchId={m.id} />
+                      </div>
                     )}
                   </div>
                 );
