@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 
 interface User {
   id: string;
@@ -14,13 +14,16 @@ export default function Nav() {
   const [user, setUser] = useState<User | null>(null);
   const [loaded, setLoaded] = useState(false);
   const router = useRouter();
+  const pathname = usePathname();
 
+  // Re-check the session whenever the route changes, so logging in/out is
+  // reflected immediately (the Nav lives in the layout and never remounts).
   useEffect(() => {
     fetch("/api/me")
       .then((r) => r.json())
       .then((d) => setUser(d.user))
       .finally(() => setLoaded(true));
-  }, []);
+  }, [pathname]);
 
   async function logout() {
     await fetch("/api/auth/logout", { method: "POST" });
