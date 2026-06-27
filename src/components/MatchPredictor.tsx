@@ -24,6 +24,46 @@ interface Prediction {
 
 const LOCK_MINUTES = 15;
 
+function LockIcon({ locked }: { locked: boolean }) {
+  return locked ? (
+    <svg
+      viewBox="0 0 24 24"
+      width="15"
+      height="15"
+      className="text-zinc-400 dark:text-zinc-500"
+      aria-label="Locked"
+    >
+      <title>Locked</title>
+      <path
+        d="M7 10V7a5 5 0 0 1 10 0v3"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+      />
+      <rect x="5" y="10" width="14" height="10" rx="2" fill="currentColor" />
+    </svg>
+  ) : (
+    <svg
+      viewBox="0 0 24 24"
+      width="15"
+      height="15"
+      className="text-green-500"
+      aria-label="Open for predictions"
+    >
+      <title>Open for predictions</title>
+      <path
+        d="M7 10V7a5 5 0 0 1 9.5-2"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+      />
+      <rect x="5" y="10" width="14" height="10" rx="2" fill="currentColor" />
+    </svg>
+  );
+}
+
 export default function MatchPredictor() {
   const [matches, setMatches] = useState<Match[]>([]);
   const [predictions, setPredictions] = useState<Record<string, Prediction>>({});
@@ -195,8 +235,10 @@ export default function MatchPredictor() {
               {group.matches.map((m) => {
                 const existing = predictions[m.id];
                 const locked = isLocked(m.kickoff_at);
+                // Red once kickoff is within 2h (until lock at -15m); green before.
                 const urgent =
-                  !locked && lockTime(m.kickoff_at) - now <= 60 * 60 * 1000;
+                  !locked &&
+                  new Date(m.kickoff_at).getTime() - now <= 2 * 60 * 60 * 1000;
                 const d = draft[m.id] ?? {
                   home: existing ? String(existing.predicted_home_score) : "",
                   away: existing ? String(existing.predicted_away_score) : "",
@@ -213,11 +255,8 @@ export default function MatchPredictor() {
                       <span className="w-12 shrink-0 text-xs tabular-nums text-zinc-500">
                         {time}
                       </span>
-                      <span
-                        className="shrink-0"
-                        title={locked ? "Locked" : "Open for predictions"}
-                      >
-                        {locked ? "🔒" : "🔓"}
+                      <span className="shrink-0 flex items-center">
+                        <LockIcon locked={locked} />
                       </span>
                       <span className="flex-1 min-w-0 text-sm">
                         {flagFor(m.home_team)} {m.home_team}{" "}
@@ -253,7 +292,7 @@ export default function MatchPredictor() {
                         className={`w-16 shrink-0 text-right text-xs tabular-nums ${
                           urgent
                             ? "text-red-600 dark:text-red-400 font-medium"
-                            : "text-zinc-500"
+                            : "text-green-600 dark:text-green-400"
                         }`}
                       >
                         {locked ? "" : compactCountdown(m.kickoff_at)}
