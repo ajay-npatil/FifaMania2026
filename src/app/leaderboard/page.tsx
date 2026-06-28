@@ -1,7 +1,16 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+
+type SortKey = "total" | "match" | "knockout" | "bonus";
+
+const SORT_TABS: { key: SortKey; label: string }[] = [
+  { key: "total", label: "Total" },
+  { key: "match", label: "Matches" },
+  { key: "knockout", label: "Knockouts" },
+  { key: "bonus", label: "Bonus" },
+];
 
 interface Row {
   display_name: string;
@@ -51,6 +60,7 @@ export default function LeaderboardPage() {
   const [hasSnapshot, setHasSnapshot] = useState(false);
   const [loading, setLoading] = useState(true);
   const [signedIn, setSignedIn] = useState<boolean | null>(null);
+  const [sortBy, setSortBy] = useState<SortKey>("total");
 
   useEffect(() => {
     Promise.all([
@@ -65,9 +75,17 @@ export default function LeaderboardPage() {
       .finally(() => setLoading(false));
   }, []);
 
+  // The API returns rows sorted by total; re-sort client-side for the other
+  // views so newcomers can see who's strongest in each category.
+  const sortedRows = useMemo(() => {
+    if (sortBy === "total") return rows;
+    return [...rows].sort((a, b) => b[sortBy] - a[sortBy]);
+  }, [rows, sortBy]);
+
   if (loading) return <p className="max-w-3xl mx-auto px-4 py-10">Loading...</p>;
 
   const locked = !signedIn;
+  const metricOf = (r: Row) => (sortBy === "total" ? r.points : r[sortBy]);
 
   return (
     <div className="max-w-3xl mx-auto px-4 py-10">
@@ -76,12 +94,28 @@ export default function LeaderboardPage() {
         Each total = match predictions + knockout bracket + Predict-a-Winner
         bonuses.
       </p>
-      {hasSnapshot && (
+      {hasSnapshot && sortBy === "total" && (
         <p className="text-xs text-zinc-500 mb-1">
           ▲▼ shows movement since the last round.
         </p>
       )}
-      <div className="mb-5" />
+
+      {/* Sort/organise by category */}
+      <div className="flex flex-wrap gap-1.5 mt-3 mb-5">
+        {SORT_TABS.map((t) => (
+          <button
+            key={t.key}
+            onClick={() => setSortBy(t.key)}
+            className={`px-3 py-1 rounded-full text-sm border transition-colors ${
+              sortBy === t.key
+                ? "border-accent bg-accent text-accent-foreground font-medium"
+                : "border-zinc-300 dark:border-zinc-700 text-zinc-500 hover:border-accent hover:text-accent"
+            }`}
+          >
+            {t.label}
+          </button>
+        ))}
+      </div>
 
       <div className="relative">
         <div
@@ -90,7 +124,7 @@ export default function LeaderboardPage() {
           }
           aria-hidden={locked}
         >
-          {rows.map((r, i) => (
+          {sortedRows.map((r, i) => (
             <div
               key={r.display_name}
               className="flex items-center justify-between border-b border-zinc-200 dark:border-zinc-800 py-3"
@@ -103,18 +137,28 @@ export default function LeaderboardPage() {
                   <span className="font-medium">{r.display_name}</span>
                   {r.points > 0 && (
                     <span className="block text-xs text-zinc-500">
-                      Matches {r.match} · Knockout {r.knockout} · Bonus {r.bonus}
+                      <span className={sortBy === "match" ? "text-accent font-medium" : ""}>
+                        Matches {r.match}
+                      </span>{" "}
+                      ·{" "}
+                      <span className={sortBy === "knockout" ? "text-accent font-medium" : ""}>
+                        Knockout {r.knockout}
+                      </span>{" "}
+                      ·{" "}
+                      <span className={sortBy === "bonus" ? "text-accent font-medium" : ""}>
+                        Bonus {r.bonus}
+                      </span>
                     </span>
                   )}
                 </span>
               </span>
               <span className="flex items-center gap-3 shrink-0">
-                <Mover row={r} />
-                <span className="font-semibold">{r.points} pts</span>
+                {sortBy === "total" && <Mover row={r} />}
+                <span className="font-semibold">{metricOf(r)} pts</span>
               </span>
             </div>
           ))}
-          {rows.length === 0 && (
+          {sortedRows.length === 0 && (
             <p className="text-sm text-zinc-500">No scored predictions yet.</p>
           )}
         </div>
