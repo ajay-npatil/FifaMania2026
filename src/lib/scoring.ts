@@ -22,7 +22,7 @@ export interface MatchScore {
 export type PenaltyWinner = "HOME" | "AWAY";
 
 /** Points for correctly calling a knockout penalty-shootout winner. */
-export const PENALTY_WINNER_POINTS = 25;
+export const PENALTY_WINNER_POINTS = 35;
 
 export function scorePrediction(
   predicted: MatchScore,

@@ -83,14 +83,14 @@ describe("scorePrediction", () => {
   });
 
   // --- Knockout penalty shootouts ---
-  it("adds 25 for an exact draw with the correct shootout winner", () => {
+  it("adds 35 for an exact draw with the correct shootout winner", () => {
     // Predicted 1-1 + home advances; actual 1-1 + home won the shootout.
     expect(
       scorePrediction({ home: 1, away: 1 }, { home: 1, away: 1 }, {
         predicted: "HOME",
         actual: "HOME",
       })
-    ).toBe(90); // 65 exact draw + 25 shootout
+    ).toBe(100); // 65 exact draw + 35 shootout
   });
 
   it("gives only the draw points when the shootout winner is wrong", () => {
@@ -102,14 +102,14 @@ describe("scorePrediction", () => {
     ).toBe(65);
   });
 
-  it("adds 25 to a non-exact draw with the correct shootout winner", () => {
+  it("adds 35 to a non-exact draw with the correct shootout winner", () => {
     // Predicted 0-0 + away advances; actual 2-2 + away won the shootout.
     expect(
       scorePrediction({ home: 0, away: 0 }, { home: 2, away: 2 }, {
         predicted: "AWAY",
         actual: "AWAY",
       })
-    ).toBe(50); // 25 draw + 25 shootout
+    ).toBe(60); // 25 draw + 35 shootout
   });
 
   it("gives no shootout bonus when the user didn't predict a draw", () => {
