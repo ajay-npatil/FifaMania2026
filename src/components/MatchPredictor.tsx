@@ -13,12 +13,14 @@ interface Match {
   home_score: number | null;
   away_score: number | null;
   status: string;
+  stage: string | null;
 }
 
 interface Prediction {
   match_id: string;
   predicted_home_score: number;
   predicted_away_score: number;
+  predicted_penalty_winner: "HOME" | "AWAY" | null;
   points_awarded: number | null;
 }
 
@@ -67,7 +69,9 @@ function LockIcon({ locked }: { locked: boolean }) {
 export default function MatchPredictor() {
   const [matches, setMatches] = useState<Match[]>([]);
   const [predictions, setPredictions] = useState<Record<string, Prediction>>({});
-  const [draft, setDraft] = useState<Record<string, { home: string; away: string }>>({});
+  const [draft, setDraft] = useState<
+    Record<string, { home: string; away: string; pen?: "HOME" | "AWAY" | "" }>
+  >({});
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -174,6 +178,7 @@ export default function MatchPredictor() {
             match_id: m.id,
             predicted_home_score: Number(d.home),
             predicted_away_score: Number(d.away),
+            predicted_penalty_winner: d.pen || null,
           }),
         }).then(async (res) => ({ res, ok: res.ok, m, data: await res.json() }));
       })
@@ -241,11 +246,23 @@ export default function MatchPredictor() {
                 const d = draft[m.id] ?? {
                   home: existing ? String(existing.predicted_home_score) : "",
                   away: existing ? String(existing.predicted_away_score) : "",
+                  pen: existing?.predicted_penalty_winner ?? "",
                 };
                 const time = new Date(m.kickoff_at).toLocaleTimeString(undefined, {
                   hour: "2-digit",
                   minute: "2-digit",
                 });
+                // Knockout matches can't end level — a predicted draw needs a
+                // shootout-winner pick.
+                const isKnockout = !!m.stage && m.stage !== "GROUP_STAGE";
+                const isDraw =
+                  d.home !== "" && d.away !== "" && d.home === d.away;
+                const penBtn = (active: boolean) =>
+                  `px-2 py-0.5 rounded-full border text-xs ${
+                    active
+                      ? "border-accent bg-accent text-accent-foreground"
+                      : "border-zinc-300 dark:border-zinc-700 hover:border-accent"
+                  } disabled:opacity-60`;
                 const inputClass =
                   "w-10 border border-zinc-300 dark:border-zinc-700 rounded-md px-1.5 py-1 bg-transparent text-center text-sm focus:outline-none focus:border-accent disabled:opacity-50";
                 return (
@@ -297,6 +314,36 @@ export default function MatchPredictor() {
                         {locked ? "" : compactCountdown(m.kickoff_at)}
                       </span>
                     </div>
+
+                    {isKnockout && isDraw && (
+                      <div className="mt-1.5 pl-[3.625rem] flex flex-wrap items-center gap-2">
+                        <span className="text-[11px] text-zinc-500">
+                          Draw — who advances on penalties?
+                        </span>
+                        <div className="flex gap-1">
+                          <button
+                            type="button"
+                            disabled={locked}
+                            className={penBtn(d.pen === "HOME")}
+                            onClick={() =>
+                              setDraft((s) => ({ ...s, [m.id]: { ...d, pen: "HOME" } }))
+                            }
+                          >
+                            {flagFor(m.home_team)} {m.home_team}
+                          </button>
+                          <button
+                            type="button"
+                            disabled={locked}
+                            className={penBtn(d.pen === "AWAY")}
+                            onClick={() =>
+                              setDraft((s) => ({ ...s, [m.id]: { ...d, pen: "AWAY" } }))
+                            }
+                          >
+                            {m.away_team} {flagFor(m.away_team)}
+                          </button>
+                        </div>
+                      </div>
+                    )}
 
                     {locked && !existing && (
                       <p className="text-[11px] text-zinc-400 mt-1 pl-[3.625rem]">

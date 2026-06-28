@@ -19,10 +19,35 @@ export interface MatchScore {
   away: number;
 }
 
+export type PenaltyWinner = "HOME" | "AWAY";
+
+/** Points for correctly calling a knockout penalty-shootout winner. */
+export const PENALTY_WINNER_POINTS = 25;
+
 export function scorePrediction(
   predicted: MatchScore,
-  actual: MatchScore
+  actual: MatchScore,
+  penalty?: { predicted: PenaltyWinner | null; actual: PenaltyWinner | null }
 ): number {
+  const base = baseScore(predicted, actual);
+
+  // Knockout shootout: a draw on the pitch, decided on penalties. A user who
+  // predicted a draw AND called the shootout winner correctly earns a bonus
+  // equal to a normal "correct winner" pick.
+  if (
+    penalty?.actual &&
+    actual.home === actual.away &&
+    predicted.home === predicted.away &&
+    penalty.predicted &&
+    penalty.predicted === penalty.actual
+  ) {
+    return base + PENALTY_WINNER_POINTS;
+  }
+
+  return base;
+}
+
+function baseScore(predicted: MatchScore, actual: MatchScore): number {
   if (
     !isNonNegativeInteger(predicted.home) ||
     !isNonNegativeInteger(predicted.away) ||

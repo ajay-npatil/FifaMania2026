@@ -40,6 +40,7 @@ create table if not exists predictions (
   match_id uuid not null references matches(id) on delete cascade,
   predicted_home_score int not null,
   predicted_away_score int not null,
+  predicted_penalty_winner text, -- 'HOME' | 'AWAY' for a predicted knockout draw, else null
   points_awarded int, -- filled in once the match finishes
   updated_at timestamptz not null default now(),
   unique (user_id, match_id)
@@ -104,6 +105,8 @@ alter table tournament_predictions add column if not exists golden_glove_points 
 
 alter table tournament_results add column if not exists golden_ball text;
 alter table tournament_results add column if not exists golden_glove text;
+
+alter table predictions add column if not exists predicted_penalty_winner text;
 
 create index if not exists idx_predictions_match on predictions(match_id);
 create index if not exists idx_predictions_user on predictions(user_id);

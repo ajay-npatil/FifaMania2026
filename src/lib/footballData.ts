@@ -18,6 +18,8 @@ export interface FdMatch {
   score: {
     winner: string | null; // HOME_TEAM | AWAY_TEAM | DRAW | null
     fullTime: { home: number | null; away: number | null };
+    // Only present on knockout matches that went to a shootout.
+    penalties?: { home: number | null; away: number | null };
   };
 }
 

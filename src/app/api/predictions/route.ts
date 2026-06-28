@@ -12,12 +12,12 @@ export async function GET() {
 
   const { data: matches } = await supabase
     .from("matches")
-    .select("id, home_team, away_team, kickoff_at, home_score, away_score, status")
+    .select("id, home_team, away_team, kickoff_at, home_score, away_score, status, stage")
     .order("kickoff_at", { ascending: true });
 
   const { data: predictions } = await supabase
     .from("predictions")
-    .select("match_id, predicted_home_score, predicted_away_score, points_awarded")
+    .select("match_id, predicted_home_score, predicted_away_score, predicted_penalty_winner, points_awarded")
     .eq("user_id", user.id);
 
   return NextResponse.json({ matches: matches ?? [], predictions: predictions ?? [] });
@@ -27,7 +27,8 @@ export async function POST(req: NextRequest) {
   const user = await getCurrentUser();
   if (!user) return NextResponse.json({ error: "Not logged in." }, { status: 401 });
 
-  const { match_id, predicted_home_score, predicted_away_score } = await req.json();
+  const { match_id, predicted_home_score, predicted_away_score, predicted_penalty_winner } =
+    await req.json();
 
   if (
     typeof match_id !== "string" ||
@@ -43,7 +44,7 @@ export async function POST(req: NextRequest) {
 
   const { data: match } = await supabase
     .from("matches")
-    .select("id, kickoff_at")
+    .select("id, kickoff_at, stage")
     .eq("id", match_id)
     .single();
 
@@ -59,12 +60,22 @@ export async function POST(req: NextRequest) {
     );
   }
 
+  // A penalty-shootout winner only applies to a predicted DRAW in a knockout
+  // match (group-stage matches can end level, so no shootout there).
+  const isKnockout = !!match.stage && match.stage !== "GROUP_STAGE";
+  const isDraw = predicted_home_score === predicted_away_score;
+  const penaltyWinner =
+    isKnockout && isDraw && (predicted_penalty_winner === "HOME" || predicted_penalty_winner === "AWAY")
+      ? predicted_penalty_winner
+      : null;
+
   const { error } = await supabase.from("predictions").upsert(
     {
       user_id: user.id,
       match_id,
       predicted_home_score,
       predicted_away_score,
+      predicted_penalty_winner: penaltyWinner,
       updated_at: new Date().toISOString(),
     },
     { onConflict: "user_id,match_id" }

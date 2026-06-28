@@ -18,8 +18,13 @@ export async function POST() {
 
   for (const m of fdMatches) {
     const status = mapFdStatus(m.status);
+
+    // Store the on-pitch result (the draw, for shootout matches). Who advanced
+    // on penalties is tracked separately in winner_team, and penalty-winner
+    // predictions are scored against that — so the stored score stays a draw.
     const home_score = m.score.fullTime.home;
     const away_score = m.score.fullTime.away;
+
     // Actual winner (accounts for penalty shootouts), null for draws/unfinished.
     const winner_team =
       m.score.winner === "HOME_TEAM"
@@ -44,7 +49,7 @@ export async function POST() {
         },
         { onConflict: "external_id" }
       )
-      .select("id, home_score, away_score, status")
+      .select("id, home_team, away_team, home_score, away_score, status, winner_team")
       .single();
 
     if (error || !match) continue;
@@ -57,16 +62,30 @@ export async function POST() {
       match.home_score !== null &&
       match.away_score !== null
     ) {
+      // Who won the shootout, if the match was level on the pitch.
+      const actualPenalty: "HOME" | "AWAY" | null =
+        match.home_score === match.away_score && match.winner_team
+          ? match.winner_team === match.home_team
+            ? "HOME"
+            : "AWAY"
+          : null;
+
       const { data: preds } = await supabase
         .from("predictions")
-        .select("id, predicted_home_score, predicted_away_score, points_awarded")
+        .select(
+          "id, predicted_home_score, predicted_away_score, predicted_penalty_winner, points_awarded"
+        )
         .eq("match_id", match.id)
         .is("points_awarded", null);
 
       for (const p of preds ?? []) {
         const points = scorePrediction(
           { home: p.predicted_home_score, away: p.predicted_away_score },
-          { home: match.home_score, away: match.away_score }
+          { home: match.home_score, away: match.away_score },
+          {
+            predicted: (p.predicted_penalty_winner as "HOME" | "AWAY" | null) ?? null,
+            actual: actualPenalty,
+          }
         );
         await supabase
           .from("predictions")
