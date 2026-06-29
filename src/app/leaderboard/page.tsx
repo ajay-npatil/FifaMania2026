@@ -91,8 +91,8 @@ export default function LeaderboardPage() {
     <div className="max-w-3xl mx-auto px-4 py-10">
       <h1 className="text-2xl font-bold mb-1">Leaderboard</h1>
       <p className="text-xs text-zinc-500 mb-1">
-        Each total = match predictions + knockout bracket + Predict-a-Winner
-        bonuses.
+        Matches = group-stage predictions · Knockout = knockout-match predictions
+        + bracket · Bonus = Predict-a-Winner awards.
       </p>
       {hasSnapshot && sortBy === "total" && (
         <p className="text-xs text-zinc-500 mb-1">

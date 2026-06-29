@@ -28,14 +28,25 @@ export async function computeStandings(
     .select("id, display_name");
   const { data: predictions } = await supabase
     .from("predictions")
-    .select("user_id, points_awarded")
+    .select("user_id, match_id, points_awarded")
     .not("points_awarded", "is", null);
   const { data: tournament } = await supabase
     .from("tournament_predictions")
     .select(
       "user_id, country_points, scorer_points, golden_ball_points, golden_glove_points, bracket"
     );
+  const { data: matchRows } = await supabase
+    .from("matches")
+    .select("id, stage");
   const bracketActuals = await computeBracketActuals(supabase);
+
+  // Knockout-stage matches (Round of 32 onward). Predicting their scores counts
+  // toward the Knockout column; group-stage matches count toward Matches.
+  const knockoutMatchIds = new Set(
+    (matchRows ?? [])
+      .filter((m) => m.stage && m.stage !== "GROUP_STAGE")
+      .map((m) => m.id)
+  );
 
   const match = new Map<string, number>();
   const knockout = new Map<string, number>();
@@ -47,7 +58,8 @@ export async function computeStandings(
   }
 
   for (const p of predictions ?? []) {
-    match.set(p.user_id, (match.get(p.user_id) ?? 0) + (p.points_awarded ?? 0));
+    const bucket = knockoutMatchIds.has(p.match_id) ? knockout : match;
+    bucket.set(p.user_id, (bucket.get(p.user_id) ?? 0) + (p.points_awarded ?? 0));
   }
 
   for (const t of tournament ?? []) {
