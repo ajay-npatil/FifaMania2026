@@ -135,19 +135,15 @@ export default function LeaderboardPage() {
                 </span>
                 <span className="min-w-0">
                   <span className="font-medium">{r.display_name}</span>
-                  {r.points > 0 && (
-                    <span className="block text-xs text-zinc-500">
-                      <span className={sortBy === "match" ? "text-accent font-medium" : ""}>
-                        Matches {r.match}
-                      </span>{" "}
-                      ·{" "}
-                      <span className={sortBy === "knockout" ? "text-accent font-medium" : ""}>
-                        Knockout {r.knockout}
-                      </span>{" "}
-                      ·{" "}
-                      <span className={sortBy === "bonus" ? "text-accent font-medium" : ""}>
-                        Bonus {r.bonus}
+                  {sortBy === "total" ? (
+                    r.points > 0 && (
+                      <span className="block text-xs text-zinc-500">
+                        Matches {r.match} · Knockout {r.knockout} · Bonus {r.bonus}
                       </span>
+                    )
+                  ) : (
+                    <span className="block text-xs text-zinc-500">
+                      {SORT_TABS.find((t) => t.key === sortBy)?.label} only
                     </span>
                   )}
                 </span>
