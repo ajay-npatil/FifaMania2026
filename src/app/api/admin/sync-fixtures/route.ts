@@ -19,11 +19,20 @@ export async function POST() {
   for (const m of fdMatches) {
     const status = mapFdStatus(m.status);
 
-    // Store the on-pitch result (the draw, for shootout matches). Who advanced
-    // on penalties is tracked separately in winner_team, and penalty-winner
-    // predictions are scored against that — so the stored score stays a draw.
-    const home_score = m.score.fullTime.home;
-    const away_score = m.score.fullTime.away;
+    // football-data's fullTime score INCLUDES the penalty-shootout goals
+    // (e.g. 1-1 after extra time, 2-3 on pens -> fullTime 3-4). Strip the
+    // shootout goals back out so the stored score is the on-pitch result (the
+    // draw). Who advanced is tracked separately in winner_team, and
+    // penalty-winner predictions are scored against that.
+    const pensHome = m.score.penalties?.home ?? null;
+    const pensAway = m.score.penalties?.away ?? null;
+    const hasShootout = pensHome !== null && pensAway !== null;
+    const home_score = hasShootout
+      ? (m.score.fullTime.home ?? 0) - pensHome
+      : m.score.fullTime.home;
+    const away_score = hasShootout
+      ? (m.score.fullTime.away ?? 0) - pensAway
+      : m.score.fullTime.away;
 
     // Actual winner (accounts for penalty shootouts), null for draws/unfinished.
     const winner_team =
@@ -70,13 +79,14 @@ export async function POST() {
             : "AWAY"
           : null;
 
+      // Re-score every prediction for a finished match (not just unscored
+      // ones), so corrected results/logic are applied to existing scores too.
       const { data: preds } = await supabase
         .from("predictions")
         .select(
           "id, predicted_home_score, predicted_away_score, predicted_penalty_winner, points_awarded"
         )
-        .eq("match_id", match.id)
-        .is("points_awarded", null);
+        .eq("match_id", match.id);
 
       for (const p of preds ?? []) {
         const points = scorePrediction(
@@ -87,11 +97,13 @@ export async function POST() {
             actual: actualPenalty,
           }
         );
-        await supabase
-          .from("predictions")
-          .update({ points_awarded: points })
-          .eq("id", p.id);
-        scored += 1;
+        if (points !== p.points_awarded) {
+          await supabase
+            .from("predictions")
+            .update({ points_awarded: points })
+            .eq("id", p.id);
+          scored += 1;
+        }
       }
     }
   }
