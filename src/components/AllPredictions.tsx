@@ -48,7 +48,7 @@ export default function AllPredictions({ matchId }: { matchId: string }) {
                 <span className="font-medium">
                   {r.predicted_home_score} - {r.predicted_away_score}
                   {r.penalty_team && (
-                    <span className="text-zinc-500"> ({r.penalty_team} on pens)</span>
+                    <span className="text-zinc-500"> ({r.penalty_team} win shootout)</span>
                   )}
                   {r.points_awarded !== null && (
                     <span className="text-zinc-500"> · {r.points_awarded} pts</span>
