@@ -69,6 +69,14 @@ export async function POST(req: NextRequest) {
       ? predicted_penalty_winner
       : null;
 
+  // A knockout match can't end level — a predicted draw must say who advances.
+  if (isKnockout && isDraw && !penaltyWinner) {
+    return NextResponse.json(
+      { error: "Pick who advances on penalties for a knockout draw." },
+      { status: 400 }
+    );
+  }
+
   const { error } = await supabase.from("predictions").upsert(
     {
       user_id: user.id,

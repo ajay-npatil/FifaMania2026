@@ -18,7 +18,7 @@ export async function GET(
 
   const { data: match, error: matchError } = await supabase
     .from("matches")
-    .select("id, kickoff_at, status")
+    .select("id, kickoff_at, status, home_team, away_team")
     .eq("id", id)
     .single();
 
@@ -38,7 +38,9 @@ export async function GET(
 
   const { data: predictions, error } = await supabase
     .from("predictions")
-    .select("predicted_home_score, predicted_away_score, points_awarded, users(display_name)")
+    .select(
+      "predicted_home_score, predicted_away_score, predicted_penalty_winner, points_awarded, users(display_name)"
+    )
     .eq("match_id", id);
 
   if (error) {
@@ -49,10 +51,18 @@ export async function GET(
     .map((p) => {
       const userRel = p.users as unknown as { display_name: string } | { display_name: string }[] | null;
       const display_name = Array.isArray(userRel) ? userRel[0]?.display_name : userRel?.display_name;
+      // The team the user backed to advance on penalties (for a draw pick).
+      const penalty_team =
+        p.predicted_penalty_winner === "HOME"
+          ? match.home_team
+          : p.predicted_penalty_winner === "AWAY"
+          ? match.away_team
+          : null;
       return {
         display_name: display_name ?? "Unknown",
         predicted_home_score: p.predicted_home_score,
         predicted_away_score: p.predicted_away_score,
+        penalty_team,
         points_awarded: p.points_awarded,
       };
     })

@@ -156,15 +156,32 @@ export default function MatchPredictor() {
     setSaving(true);
     setMessage(null);
 
-    const toSave = upcoming.filter((m) => {
+    const entered = upcoming.filter((m) => {
       if (isLocked(m.kickoff_at)) return false;
       const d = draft[m.id];
       return d && d.home !== "" && d.away !== "";
     });
 
+    // A knockout draw must have a penalty winner — flag any that don't, and
+    // don't save those until they're completed.
+    const isKnockoutDrawNoPen = (m: Match) => {
+      const d = draft[m.id];
+      const knockout = !!m.stage && m.stage !== "GROUP_STAGE";
+      return knockout && d.home === d.away && !d.pen;
+    };
+    const incomplete = entered.filter(isKnockoutDrawNoPen);
+    const toSave = entered.filter((m) => !isKnockoutDrawNoPen(m));
+
+    const incompleteMsg =
+      incomplete.length > 0
+        ? `Pick who advances on penalties for: ${incomplete
+            .map((m) => `${m.home_team} v ${m.away_team}`)
+            .join(", ")}.`
+        : "";
+
     if (toSave.length === 0) {
       setSaving(false);
-      setMessage("Nothing to save.");
+      setMessage(incompleteMsg || "Nothing to save.");
       return;
     }
 
@@ -189,12 +206,16 @@ export default function MatchPredictor() {
     await load();
 
     if (failed.length === 0) {
-      setMessage(`Saved ${results.length} prediction${results.length === 1 ? "" : "s"}.`);
+      setMessage(
+        `Saved ${results.length} prediction${results.length === 1 ? "" : "s"}.${
+          incompleteMsg ? " " + incompleteMsg : ""
+        }`
+      );
     } else {
       setMessage(
         `Saved ${results.length - failed.length} of ${results.length}. ${failed
           .map((f) => `${f.m.home_team} vs ${f.m.away_team}: ${f.data.error ?? "error"}`)
-          .join(" ")}`
+          .join(" ")}${incompleteMsg ? " " + incompleteMsg : ""}`
       );
     }
   }
@@ -317,8 +338,15 @@ export default function MatchPredictor() {
 
                     {isKnockout && isDraw && (
                       <div className="mt-1.5 pl-[3.625rem] flex flex-wrap items-center gap-2">
-                        <span className="text-[11px] text-zinc-500">
+                        <span
+                          className={`text-[11px] ${
+                            d.pen
+                              ? "text-zinc-500"
+                              : "text-red-600 dark:text-red-400 font-medium"
+                          }`}
+                        >
                           Draw — who advances on penalties?
+                          {!d.pen && !locked && " (required)"}
                         </span>
                         <div className="flex gap-1">
                           <button

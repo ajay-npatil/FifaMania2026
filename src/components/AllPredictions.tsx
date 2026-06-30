@@ -6,6 +6,7 @@ interface PredictionRow {
   display_name: string;
   predicted_home_score: number;
   predicted_away_score: number;
+  penalty_team: string | null;
   points_awarded: number | null;
 }
 
@@ -46,6 +47,9 @@ export default function AllPredictions({ matchId }: { matchId: string }) {
                 <span>{r.display_name}</span>
                 <span className="font-medium">
                   {r.predicted_home_score} - {r.predicted_away_score}
+                  {r.penalty_team && (
+                    <span className="text-zinc-500"> ({r.penalty_team} on pens)</span>
+                  )}
                   {r.points_awarded !== null && (
                     <span className="text-zinc-500"> · {r.points_awarded} pts</span>
                   )}
