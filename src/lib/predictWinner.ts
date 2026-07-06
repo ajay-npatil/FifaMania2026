@@ -55,21 +55,21 @@ export async function isPredictWinnerLocked(
 export async function predictWinnerBracketLockAt(
   supabase: ReturnType<typeof getSupabaseAdmin>
 ): Promise<Date> {
-  const { data } = await supabase
-    .from("matches")
-    .select("kickoff_at, stage")
-    .in("stage", ["SEMI_FINALS", "SEMI_FINAL"])
-    .order("kickoff_at", { ascending: true })
-    .limit(1)
-    .maybeSingle();
+  const { data } = await supabase.from("matches").select("kickoff_at, stage");
 
-  if (data?.kickoff_at) {
-    return new Date(
-      new Date(data.kickoff_at).getTime() -
-        PREDICT_WINNER_LOCK_MINUTES * 60 * 1000
-    );
+  // Any stage containing "SEMI" (case-insensitive) is a semi-final, so it
+  // works whatever exact label the API uses.
+  const firstSemiKickoff = (data ?? [])
+    .filter((m) => (m.stage ?? "").toUpperCase().includes("SEMI"))
+    .map((m) => new Date(m.kickoff_at).getTime())
+    .filter((t) => !Number.isNaN(t))
+    .sort((a, b) => a - b)[0];
+
+  if (firstSemiKickoff) {
+    return new Date(firstSemiKickoff - PREDICT_WINNER_LOCK_MINUTES * 60 * 1000);
   }
 
+  // Until the semis are scheduled/synced, keep the picks open.
   const env = process.env.PREDICT_WINNER_BRACKET_LOCK_AT;
   return env ? new Date(env) : new Date("2099-01-01T00:00:00Z");
 }
