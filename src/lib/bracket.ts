@@ -53,6 +53,46 @@ interface MatchRow {
 }
 
 /**
+ * Teams still alive in the tournament: those that reached the knockouts and
+ * haven't lost a knockout match yet. Used to restrict the Finalists/Winner/3rd
+ * picks to teams that can still actually get there.
+ */
+export async function computeAliveTeams(
+  supabase: ReturnType<typeof getSupabaseAdmin>
+): Promise<string[]> {
+  const { data } = await supabase
+    .from("matches")
+    .select("home_team, away_team, stage, status, winner_team");
+  const matches = (data ?? []) as MatchRow[];
+
+  const groupTeams = new Set<string>();
+  for (const m of matches) {
+    if (isGroupStage(m.stage)) {
+      groupTeams.add(m.home_team);
+      groupTeams.add(m.away_team);
+    }
+  }
+  const known =
+    groupTeams.size > 0
+      ? groupTeams
+      : new Set(matches.flatMap((m) => [m.home_team, m.away_team]));
+
+  const inKnockout = new Set<string>();
+  const eliminated = new Set<string>();
+  for (const m of matches) {
+    if (!m.stage || isGroupStage(m.stage)) continue;
+    if (known.has(m.home_team)) inKnockout.add(m.home_team);
+    if (known.has(m.away_team)) inKnockout.add(m.away_team);
+    if (m.status === "FINISHED" && m.winner_team) {
+      const loser = m.winner_team === m.home_team ? m.away_team : m.home_team;
+      if (known.has(loser)) eliminated.add(loser);
+    }
+  }
+
+  return [...inKnockout].filter((t) => !eliminated.has(t)).sort();
+}
+
+/**
  * Works out the actual knockout participants from the fixtures, and which
  * stages are fully determined (revealed). A team "reached" a stage if it
  * appears in a match at that stage and is a real tournament team (i.e. was a

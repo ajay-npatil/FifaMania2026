@@ -64,12 +64,15 @@ interface BracketScore {
 
 interface Data {
   countries: string[];
+  aliveTeams: string[];
   scorers: ScorerOption[];
   pick: Pick | null;
   results: Results | null;
   points: number;
   lockAt: string;
   locked: boolean;
+  bracketLockAt: string;
+  bracketLocked: boolean;
   bracket: BracketPicks;
   bracketActuals: BracketActuals;
   bracketReveal: BracketReveal;
@@ -184,8 +187,6 @@ export default function PredictWinner() {
   const [data, setData] = useState<Data | null>(null);
   const [country, setCountry] = useState("");
   const [scorer, setScorer] = useState("");
-  const [qf, setQf] = useState<string[]>(() => Array(8).fill(""));
-  const [sf, setSf] = useState<string[]>(() => Array(4).fill(""));
   const [fin, setFin] = useState<string[]>(() => Array(2).fill(""));
   const [winner, setWinner] = useState("");
   const [third, setThird] = useState("");
@@ -208,24 +209,15 @@ export default function PredictWinner() {
     setScorer(d.pick?.top_scorer ?? "");
     setGoldenBall(d.pick?.golden_ball ?? "");
     setGoldenGlove(d.pick?.golden_glove ?? "");
-    // Prune saved picks down the cascade so a stage never shows a team that
-    // isn't eligible from the stage before it.
-    const loadedQf = pad(d.bracket?.qf, 8);
-    const allowedQf = new Set(loadedQf.filter(Boolean));
-    const loadedSf = pad(d.bracket?.sf, 4).map((t) => (allowedQf.has(t) ? t : ""));
-    const allowedSf = new Set(loadedSf.filter(Boolean));
-    const loadedFin = pad(d.bracket?.final, 2).map((t) =>
-      allowedSf.has(t) ? t : ""
-    );
-    const allowedFin = new Set(loadedFin.filter(Boolean));
-    setQf(loadedQf);
-    setSf(loadedSf);
+    // Knockout picks are now just Finalists / Winner / Third. Keep only ones
+    // still valid (a finalist can't also be third; both must be still alive).
+    const alive = new Set(d.aliveTeams ?? []);
+    const loadedFin = pad(d.bracket?.final, 2).map((t) => (alive.has(t) ? t : ""));
+    const finSet = new Set(loadedFin.filter(Boolean));
     setFin(loadedFin);
-    setWinner(d.bracket?.winner && allowedFin.has(d.bracket.winner) ? d.bracket.winner : "");
+    setWinner(d.bracket?.winner && finSet.has(d.bracket.winner) ? d.bracket.winner : "");
     setThird(
-      d.bracket?.third &&
-        allowedSf.has(d.bracket.third) &&
-        !allowedFin.has(d.bracket.third)
+      d.bracket?.third && alive.has(d.bracket.third) && !finSet.has(d.bracket.third)
         ? d.bracket.third
         : ""
     );
@@ -254,8 +246,8 @@ export default function PredictWinner() {
         golden_ball: goldenBall,
         golden_glove: goldenGlove,
         bracket: {
-          qf: qf.filter(Boolean),
-          sf: sf.filter(Boolean),
+          qf: [],
+          sf: [],
           final: fin.filter(Boolean),
           winner: winner || null,
           third: third || null,
@@ -274,45 +266,17 @@ export default function PredictWinner() {
 
   if (loading || !data) return <p>Loading...</p>;
 
-  const lockMs = new Date(data.lockAt).getTime() - now;
-  const locked = data.locked || lockMs <= 0;
+  // Awards (country / scorer / golden ball / glove) froze before the Round of 32.
+  const locked = data.locked;
+  // Finalists / Winner / Third re-open and lock before the semi-finals.
+  const bracketLockMs = new Date(data.bracketLockAt).getTime() - now;
+  const bracketLocked = data.bracketLocked || bracketLockMs <= 0;
   const settled = !!data.results?.settled_at;
 
-  // Each stage can only choose from the teams picked in the previous stage,
-  // so nobody can advance a team they didn't put through. Changing an upstream
-  // pick prunes any downstream picks that are no longer eligible.
-  const qfPicks = [...new Set(qf.filter(Boolean))];
-  const sfPicks = [...new Set(sf.filter(Boolean))];
   const finPicks = [...new Set(fin.filter(Boolean))];
-  // Third place is decided between the losing semi-finalists, so a finalist
-  // can't also be third — third place comes from semi-finalists not in the final.
   const finSet = new Set(finPicks);
-  const thirdOptions = sfPicks.filter((t) => !finSet.has(t));
-
-  const changeQf = (i: number, v: string) => {
-    const nextQf = qf.map((x, idx) => (idx === i ? v : x));
-    const allowedQf = new Set(nextQf.filter(Boolean));
-    const nextSf = sf.map((t) => (allowedQf.has(t) ? t : ""));
-    const allowedSf = new Set(nextSf.filter(Boolean));
-    const nextFin = fin.map((t) => (allowedSf.has(t) ? t : ""));
-    const allowedFin = new Set(nextFin.filter(Boolean));
-    setQf(nextQf);
-    setSf(nextSf);
-    setFin(nextFin);
-    setWinner((w) => (w && allowedFin.has(w) ? w : ""));
-    setThird((t) => (t && allowedSf.has(t) && !allowedFin.has(t) ? t : ""));
-  };
-
-  const changeSf = (i: number, v: string) => {
-    const nextSf = sf.map((x, idx) => (idx === i ? v : x));
-    const allowedSf = new Set(nextSf.filter(Boolean));
-    const nextFin = fin.map((t) => (allowedSf.has(t) ? t : ""));
-    const allowedFin = new Set(nextFin.filter(Boolean));
-    setSf(nextSf);
-    setFin(nextFin);
-    setWinner((w) => (w && allowedFin.has(w) ? w : ""));
-    setThird((t) => (t && allowedSf.has(t) && !allowedFin.has(t) ? t : ""));
-  };
+  // Third place can't be one of your finalists.
+  const thirdOptions = data.aliveTeams.filter((t) => !finSet.has(t));
 
   const changeFin = (i: number, v: string) => {
     const nextFin = fin.map((x, idx) => (idx === i ? v : x));
@@ -323,34 +287,15 @@ export default function PredictWinner() {
     setThird((t) => (t && !allowedFin.has(t) ? t : ""));
   };
 
-  // A team already chosen in another slot of the same stage drops out of the
-  // remaining dropdowns, so the same team can't be picked twice in one stage.
-  const without = (base: string[], stage: string[], i: number) =>
-    base.filter((t) => t === stage[i] || !stage.some((v, idx) => idx !== i && v === t));
+  // A team already chosen in the other finalist slot drops out of this one.
+  const without = (base: string[], arr: string[], i: number) =>
+    base.filter((t) => t === arr[i] || !arr.some((v, idx) => idx !== i && v === t));
 
-  const qfSlot = (i: number) => (
-    <TeamSelect
-      value={qf[i]}
-      disabled={locked}
-      teams={without(data.countries, qf, i)}
-      mark={hitMark(qf[i], data.bracketReveal.qf, data.bracketActuals.qf)}
-      onChange={(v) => changeQf(i, v)}
-    />
-  );
-  const sfSlot = (i: number) => (
-    <TeamSelect
-      value={sf[i]}
-      disabled={locked}
-      teams={without(qfPicks, sf, i)}
-      mark={hitMark(sf[i], data.bracketReveal.sf, data.bracketActuals.sf)}
-      onChange={(v) => changeSf(i, v)}
-    />
-  );
   const finSlot = (i: number) => (
     <TeamSelect
       value={fin[i]}
-      disabled={locked}
-      teams={without(sfPicks, fin, i)}
+      disabled={bracketLocked}
+      teams={without(data.aliveTeams, fin, i)}
       mark={hitMark(fin[i], data.bracketReveal.final, data.bracketActuals.final)}
       onChange={(v) => changeFin(i, v)}
     />
@@ -359,27 +304,20 @@ export default function PredictWinner() {
   return (
     <div>
       <h1 className="text-2xl font-bold mb-2">Predict a Winner</h1>
-      <p className="text-sm text-zinc-500 mb-1">
-        Tournament-long calls, each worth{" "}
-        <strong>{data.points} points</strong> if you nail it: the{" "}
-        <strong>country</strong> that scores the most goals, the{" "}
-        <strong>golden boot</strong> (top scorer), the{" "}
-        <strong>Golden Ball</strong> (best player) and the{" "}
-        <strong>Golden Glove</strong> (best goalkeeper).
-      </p>
-      <p className="text-sm text-zinc-500 mb-6">
-        Picks lock 15 minutes before the Round of 32 and{" "}
-        <strong>can&apos;t be changed after that.</strong>
+      <p className="text-sm text-zinc-500 mb-4">
+        Call the business end of the tournament — pick your{" "}
+        <strong>finalists, champion and third place</strong> from the teams
+        still standing. Your tournament-long award picks are further down.
       </p>
 
-      {!locked && (
+      {!bracketLocked && (
         <p className="text-sm font-medium text-green-600 dark:text-green-400 mb-4">
-          ⏱ {countdownLabel(lockMs)}
+          ⏱ {countdownLabel(bracketLockMs)} to lock your finalists, winner &amp; third
         </p>
       )}
-      {locked && !settled && (
+      {bracketLocked && !settled && (
         <p className="text-sm font-medium text-zinc-500 mb-4">
-          🔒 Picks are locked. Winners are decided at the end of the tournament.
+          🔒 Knockout picks are locked.
         </p>
       )}
 
@@ -403,6 +341,123 @@ export default function PredictWinner() {
       )}
 
       {message && <p className="mb-4 text-sm">{message}</p>}
+
+      {/* Knockout picks — Finalists / Winner / Third (re-opened, from alive teams) */}
+      <div className="mb-10">
+        <h2 className="text-lg font-semibold mb-1">🏆 Predict the finish</h2>
+        <p className="text-sm text-zinc-500 mb-1">
+          Only teams still in the tournament.{" "}
+          <strong>{data.bracketConfig.final} pts</strong> per finalist,{" "}
+          <strong>{data.bracketConfig.winner} pts</strong> for the winner,{" "}
+          <strong>{data.bracketConfig.third} pts</strong> for third.
+        </p>
+        <p className="text-sm text-zinc-500 mb-4">
+          {bracketLocked
+            ? "Locked."
+            : "Locks 15 minutes before the first semi-final."}
+        </p>
+
+        {(data.bracketReveal.final ||
+          data.bracketReveal.winner ||
+          data.bracketReveal.third) && (
+          <p className="mb-4 text-sm font-medium">
+            Points so far:{" "}
+            <span className="text-accent">
+              {data.bracketPoints.final +
+                data.bracketPoints.winner +
+                data.bracketPoints.third}
+            </span>
+          </p>
+        )}
+
+        <div className="flex flex-col gap-4">
+          <StageCard
+            title="Finalists"
+            subtitle={`pick 2 · ${data.bracketConfig.final} pts each`}
+            points={data.bracketReveal.final ? data.bracketPoints.final : null}
+            accent
+          >
+            {data.aliveTeams.length === 0 ? (
+              <p className="text-xs text-zinc-400">
+                Teams appear here once the knockouts are synced.
+              </p>
+            ) : (
+              <div className="flex items-center gap-2">
+                <div className="flex-1 min-w-0">{finSlot(0)}</div>
+                <span className="shrink-0 text-sm text-zinc-400">vs</span>
+                <div className="flex-1 min-w-0">{finSlot(1)}</div>
+              </div>
+            )}
+          </StageCard>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <StageCard
+              title="🏆 Winner"
+              subtitle={`one of your finalists · ${data.bracketConfig.winner} pts`}
+              points={data.bracketReveal.winner ? data.bracketPoints.winner : null}
+            >
+              {finPicks.length === 0 ? (
+                <p className="text-xs text-zinc-400">Pick your two finalists first.</p>
+              ) : (
+                <TeamSelect
+                  value={winner}
+                  disabled={bracketLocked}
+                  teams={finPicks}
+                  mark={hitMark(
+                    winner,
+                    data.bracketReveal.winner,
+                    data.bracketActuals.winner ? [data.bracketActuals.winner] : []
+                  )}
+                  onChange={setWinner}
+                />
+              )}
+            </StageCard>
+
+            <StageCard
+              title="🥉 Third place"
+              subtitle={`not one of your finalists · ${data.bracketConfig.third} pts`}
+              points={data.bracketReveal.third ? data.bracketPoints.third : null}
+            >
+              {thirdOptions.length === 0 ? (
+                <p className="text-xs text-zinc-400">
+                  Pick teams that aren&apos;t your finalists.
+                </p>
+              ) : (
+                <TeamSelect
+                  value={third}
+                  disabled={bracketLocked}
+                  teams={thirdOptions}
+                  mark={hitMark(
+                    third,
+                    data.bracketReveal.third,
+                    data.bracketActuals.third ? [data.bracketActuals.third] : []
+                  )}
+                  onChange={setThird}
+                />
+              )}
+            </StageCard>
+          </div>
+        </div>
+
+        {!bracketLocked && (
+          <div className="mt-6 flex justify-end">
+            <button
+              onClick={save}
+              disabled={saving}
+              className="rounded-full bg-accent text-accent-foreground px-6 py-2.5 text-sm font-medium hover:opacity-90 disabled:opacity-50"
+            >
+              {saving ? "Saving..." : "Save my picks"}
+            </button>
+          </div>
+        )}
+      </div>
+
+      {/* Tournament-long award picks (locked before the Round of 32) */}
+      <h2 className="text-lg font-semibold mb-1">Tournament awards</h2>
+      <p className="text-sm text-zinc-500 mb-4">
+        Each worth <strong>{data.points} points</strong>. These locked before the
+        Round of 32 and can&apos;t be changed — shown for reference.
+      </p>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 items-start">
         {/* Country pick */}
@@ -526,149 +581,6 @@ export default function PredictWinner() {
         </div>
       </div>
 
-      {/* Stage predictions */}
-      <div className="mt-12">
-        <h2 className="text-lg font-semibold mb-1">Stage predictions</h2>
-        <p className="text-sm text-zinc-500 mb-1">
-          Pick which teams reach each stage — it doesn&apos;t matter who plays
-          whom or which side of the draw they&apos;re on, only whether a team
-          makes it. Each stage can only use teams from the stage before it (your
-          semi-finalists must be among your quarter-finalists, and so on). Points
-          per correct team:{" "}
-          <strong>
-            {data.bracketConfig.qf} QF · {data.bracketConfig.sf} SF ·{" "}
-            {data.bracketConfig.final} Final · {data.bracketConfig.winner} Winner ·{" "}
-            {data.bracketConfig.third} 3rd
-          </strong>
-          .
-        </p>
-        <p className="text-sm text-zinc-500 mb-4">
-          Each stage&apos;s points reveal automatically as the tournament reaches
-          it (Round of 16 done → QF, quarters done → semis, and so on).
-        </p>
-
-        {(data.bracketReveal.qf ||
-          data.bracketReveal.sf ||
-          data.bracketReveal.final ||
-          data.bracketReveal.winner ||
-          data.bracketReveal.third) && (
-          <p className="mb-4 text-sm font-medium">
-            Stage points so far:{" "}
-            <span className="text-accent">{data.bracketPoints.total}</span>
-          </p>
-        )}
-
-        <div className="flex flex-col gap-4">
-          <StageCard
-            title="Quarter-finalists"
-            subtitle={`pick up to 8 · ${data.bracketConfig.qf} pts each`}
-            points={data.bracketReveal.qf ? data.bracketPoints.qf : null}
-          >
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-              {[0, 1, 2, 3, 4, 5, 6, 7].map((i) => (
-                <div key={i}>{qfSlot(i)}</div>
-              ))}
-            </div>
-          </StageCard>
-
-          <StageCard
-            title="Semi-finalists"
-            subtitle={`pick 4 of your quarter-finalists · ${data.bracketConfig.sf} pts each`}
-            points={data.bracketReveal.sf ? data.bracketPoints.sf : null}
-          >
-            {qfPicks.length === 0 ? (
-              <p className="text-xs text-zinc-400">
-                Pick your quarter-finalists above first.
-              </p>
-            ) : (
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                {[0, 1, 2, 3].map((i) => (
-                  <div key={i}>{sfSlot(i)}</div>
-                ))}
-              </div>
-            )}
-          </StageCard>
-
-          <StageCard
-            title="Finalists"
-            subtitle={`pick 2 of your semi-finalists · ${data.bracketConfig.final} pts each`}
-            points={data.bracketReveal.final ? data.bracketPoints.final : null}
-          >
-            {sfPicks.length === 0 ? (
-              <p className="text-xs text-zinc-400">
-                Pick your semi-finalists above first.
-              </p>
-            ) : (
-              <div className="grid grid-cols-2 gap-2">
-                {[0, 1].map((i) => (
-                  <div key={i}>{finSlot(i)}</div>
-                ))}
-              </div>
-            )}
-          </StageCard>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <StageCard
-              title="🏆 Winner"
-              subtitle={`one of your finalists · ${data.bracketConfig.winner} pts`}
-              points={data.bracketReveal.winner ? data.bracketPoints.winner : null}
-              accent
-            >
-              {finPicks.length === 0 ? (
-                <p className="text-xs text-zinc-400">Pick your finalists first.</p>
-              ) : (
-                <TeamSelect
-                  value={winner}
-                  disabled={locked}
-                  teams={finPicks}
-                  mark={hitMark(
-                    winner,
-                    data.bracketReveal.winner,
-                    data.bracketActuals.winner ? [data.bracketActuals.winner] : []
-                  )}
-                  onChange={setWinner}
-                />
-              )}
-            </StageCard>
-
-            <StageCard
-              title="🥉 Third place"
-              subtitle={`one of your semi-finalists · ${data.bracketConfig.third} pts`}
-              points={data.bracketReveal.third ? data.bracketPoints.third : null}
-            >
-              {thirdOptions.length === 0 ? (
-                <p className="text-xs text-zinc-400">
-                  Pick semi-finalists who aren&apos;t your finalists first.
-                </p>
-              ) : (
-                <TeamSelect
-                  value={third}
-                  disabled={locked}
-                  teams={thirdOptions}
-                  mark={hitMark(
-                    third,
-                    data.bracketReveal.third,
-                    data.bracketActuals.third ? [data.bracketActuals.third] : []
-                  )}
-                  onChange={setThird}
-                />
-              )}
-            </StageCard>
-          </div>
-        </div>
-      </div>
-
-      {!locked && (
-        <div className="mt-8 flex justify-end">
-          <button
-            onClick={save}
-            disabled={saving}
-            className="rounded-full bg-accent text-accent-foreground px-6 py-2.5 text-sm font-medium hover:opacity-90 disabled:opacity-50"
-          >
-            {saving ? "Saving..." : "Save my picks"}
-          </button>
-        </div>
-      )}
     </div>
   );
 }

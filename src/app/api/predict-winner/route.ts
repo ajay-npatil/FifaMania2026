@@ -6,11 +6,14 @@ import {
   PREDICT_WINNER_POINTS,
   predictWinnerLockAt,
   isPredictWinnerLocked,
+  predictWinnerBracketLockAt,
+  isPredictWinnerBracketLocked,
 } from "@/lib/predictWinner";
 import {
   BRACKET_POINTS,
   BRACKET_SLOTS,
   computeBracketActuals,
+  computeAliveTeams,
   scoreBracket,
   emptyBracket,
 } from "@/lib/bracket";
@@ -74,17 +77,22 @@ export async function GET() {
     .maybeSingle();
 
   const lockAt = await predictWinnerLockAt(supabase);
+  const bracketLockAt = await predictWinnerBracketLockAt(supabase);
   const bracketActuals = await computeBracketActuals(supabase);
   const bracketPoints = scoreBracket(pick?.bracket ?? null, bracketActuals);
+  const aliveTeams = await computeAliveTeams(supabase);
 
   return NextResponse.json({
     countries,
+    aliveTeams,
     scorers,
     pick: pick ?? null,
     results: results ?? null,
     points: PREDICT_WINNER_POINTS,
     lockAt: lockAt.toISOString(),
     locked: Date.now() >= lockAt.getTime(),
+    bracketLockAt: bracketLockAt.toISOString(),
+    bracketLocked: Date.now() >= bracketLockAt.getTime(),
     bracket: pick?.bracket ?? emptyBracket(),
     bracketActuals: {
       qf: bracketActuals.qf,
@@ -130,8 +138,10 @@ export async function POST(req: NextRequest) {
   if (!user) return NextResponse.json({ error: "Not logged in." }, { status: 401 });
 
   const supabase = getSupabaseAdmin();
+  const awardsLocked = await isPredictWinnerLocked(supabase);
+  const bracketLocked = await isPredictWinnerBracketLocked(supabase);
 
-  if (await isPredictWinnerLocked(supabase)) {
+  if (awardsLocked && bracketLocked) {
     return NextResponse.json(
       { error: "Predictions are locked and can no longer be changed." },
       { status: 403 }
@@ -139,99 +149,85 @@ export async function POST(req: NextRequest) {
   }
 
   const body = await req.json();
-  const teams = await teamSet(supabase);
 
-  const top_country = validTeamOrError(body.top_country, teams);
-  if (top_country === INVALID) {
-    return NextResponse.json({ error: "Unknown country." }, { status: 400 });
-  }
+  // Only fields whose window is still open are updated; the upsert leaves the
+  // rest untouched (so frozen award picks are preserved).
+  const update: Record<string, unknown> = {
+    user_id: user.id,
+    updated_at: new Date().toISOString(),
+  };
 
-  const top_scorer =
-    typeof body.top_scorer === "string" && body.top_scorer.trim()
-      ? body.top_scorer.trim()
-      : null;
-  if (top_scorer) {
-    const scorers = await loadScorers();
-    if (scorers.length > 0 && !scorers.some((s) => s.name === top_scorer)) {
+  // Awards (country / scorer / golden ball / glove) — only while still open.
+  if (!awardsLocked) {
+    const teams = await teamSet(supabase);
+
+    const top_country = validTeamOrError(body.top_country, teams);
+    if (top_country === INVALID) {
+      return NextResponse.json({ error: "Unknown country." }, { status: 400 });
+    }
+
+    const top_scorer =
+      typeof body.top_scorer === "string" && body.top_scorer.trim()
+        ? body.top_scorer.trim()
+        : null;
+    if (top_scorer) {
+      const scorers = await loadScorers();
+      if (scorers.length > 0 && !scorers.some((s) => s.name === top_scorer)) {
+        return NextResponse.json(
+          { error: "Pick a player from the top-scorers list." },
+          { status: 400 }
+        );
+      }
+    }
+
+    const golden_ball =
+      typeof body.golden_ball === "string" && body.golden_ball.trim()
+        ? body.golden_ball.trim()
+        : null;
+    if (golden_ball && !isCandidate(GOLDEN_BALL_CANDIDATES, golden_ball)) {
       return NextResponse.json(
-        { error: "Pick a player from the top-scorers list." },
+        { error: "Pick a Golden Ball candidate from the list." },
         { status: 400 }
       );
     }
+
+    const golden_glove =
+      typeof body.golden_glove === "string" && body.golden_glove.trim()
+        ? body.golden_glove.trim()
+        : null;
+    if (golden_glove && !isCandidate(GOLDEN_GLOVE_CANDIDATES, golden_glove)) {
+      return NextResponse.json(
+        { error: "Pick a Golden Glove candidate from the list." },
+        { status: 400 }
+      );
+    }
+
+    update.top_country = top_country;
+    update.top_scorer = top_scorer;
+    update.golden_ball = golden_ball;
+    update.golden_glove = golden_glove;
   }
 
-  const golden_ball =
-    typeof body.golden_ball === "string" && body.golden_ball.trim()
-      ? body.golden_ball.trim()
-      : null;
-  if (golden_ball && !isCandidate(GOLDEN_BALL_CANDIDATES, golden_ball)) {
-    return NextResponse.json(
-      { error: "Pick a Golden Ball candidate from the list." },
-      { status: 400 }
-    );
+  // Knockout picks — Finalists (2), Winner (a finalist), Third (a still-alive
+  // team that isn't a finalist). Only while the bracket window is open.
+  if (!bracketLocked) {
+    const alive = new Set(await computeAliveTeams(supabase));
+    const b = body.bracket ?? {};
+    const finalists = sanitizeTeams(b.final, BRACKET_SLOTS.final, alive);
+    const finalistSet = new Set(finalists);
+    const thirdAllowed = new Set([...alive].filter((t) => !finalistSet.has(t)));
+    update.bracket = {
+      qf: [],
+      sf: [],
+      final: finalists,
+      winner: validTeam(b.winner, finalistSet),
+      third: validTeam(b.third, thirdAllowed),
+    };
   }
 
-  const golden_glove =
-    typeof body.golden_glove === "string" && body.golden_glove.trim()
-      ? body.golden_glove.trim()
-      : null;
-  if (golden_glove && !isCandidate(GOLDEN_GLOVE_CANDIDATES, golden_glove)) {
-    return NextResponse.json(
-      { error: "Pick a Golden Glove candidate from the list." },
-      { status: 400 }
-    );
-  }
-
-  // Each stage may only contain teams chosen in the previous stage, so a
-  // user can't advance a team they didn't put through. Restricting the
-  // allowed set at each step drops any ineligible picks.
-  const b = body.bracket ?? {};
-  const qf = sanitizeTeams(b.qf, BRACKET_SLOTS.qf, teams);
-  const sf = sanitizeTeams(b.sf, BRACKET_SLOTS.sf, new Set(qf));
-  const finalists = sanitizeTeams(b.final, BRACKET_SLOTS.final, new Set(sf));
-  // Third place is a losing semi-finalist, so it can't be one of the finalists.
-  const finalistSet = new Set(finalists);
-  const thirdAllowed = new Set(sf.filter((t) => !finalistSet.has(t)));
-  const bracket = {
-    qf,
-    sf,
-    final: finalists,
-    winner: validTeam(b.winner, finalistSet),
-    third: validTeam(b.third, thirdAllowed),
-  };
-
-  const bracketEmpty =
-    bracket.qf.length === 0 &&
-    bracket.sf.length === 0 &&
-    bracket.final.length === 0 &&
-    !bracket.winner &&
-    !bracket.third;
-
-  if (
-    !top_country &&
-    !top_scorer &&
-    !golden_ball &&
-    !golden_glove &&
-    bracketEmpty
-  ) {
-    return NextResponse.json(
-      { error: "Make at least one pick before saving." },
-      { status: 400 }
-    );
-  }
-
-  const { error } = await supabase.from("tournament_predictions").upsert(
-    {
-      user_id: user.id,
-      top_country,
-      top_scorer,
-      golden_ball,
-      golden_glove,
-      bracket,
-      updated_at: new Date().toISOString(),
-    },
-    { onConflict: "user_id" }
-  );
+  const { error } = await supabase
+    .from("tournament_predictions")
+    .upsert(update, { onConflict: "user_id" });
 
   if (error) {
     return NextResponse.json(
