@@ -52,33 +52,16 @@ export async function isPredictWinnerLocked(
  * PREDICT_WINNER_BRACKET_LOCK_AT env var, or (until the semis are scheduled)
  * stays open.
  */
-export async function predictWinnerBracketLockAt(
-  supabase: ReturnType<typeof getSupabaseAdmin>
-): Promise<Date> {
-  const { data } = await supabase.from("matches").select("kickoff_at, stage");
-
-  // Any stage containing "SEMI" (case-insensitive) is a semi-final, so it
-  // works whatever exact label the API uses.
-  const firstSemiKickoff = (data ?? [])
-    .filter((m) => (m.stage ?? "").toUpperCase().includes("SEMI"))
-    .map((m) => new Date(m.kickoff_at).getTime())
-    .filter((t) => !Number.isNaN(t))
-    .sort((a, b) => a - b)[0];
-
-  if (firstSemiKickoff) {
-    return new Date(firstSemiKickoff - PREDICT_WINNER_LOCK_MINUTES * 60 * 1000);
-  }
-
-  // Until the semis are scheduled/synced, keep the picks open.
+export function predictWinnerBracketLockAt(): Date {
+  // Finalists / Winner / Third lock 15 minutes before the first semi-final:
+  // 14 Jul 2026, 8:45 PM CEST (15 min before a 9:00 PM CEST kickoff).
+  // Override with PREDICT_WINNER_BRACKET_LOCK_AT if the kickoff time differs.
   const env = process.env.PREDICT_WINNER_BRACKET_LOCK_AT;
-  return env ? new Date(env) : new Date("2099-01-01T00:00:00Z");
+  return env ? new Date(env) : new Date("2026-07-14T20:45:00+02:00");
 }
 
-export async function isPredictWinnerBracketLocked(
-  supabase: ReturnType<typeof getSupabaseAdmin>,
-  now: number = Date.now()
-): Promise<boolean> {
-  return now >= (await predictWinnerBracketLockAt(supabase)).getTime();
+export function isPredictWinnerBracketLocked(now: number = Date.now()): boolean {
+  return now >= predictWinnerBracketLockAt().getTime();
 }
 
 /** Normalises a name for forgiving comparison (case/space/accent-insensitive). */
