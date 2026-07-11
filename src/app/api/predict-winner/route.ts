@@ -77,7 +77,7 @@ export async function GET() {
     .maybeSingle();
 
   const lockAt = await predictWinnerLockAt(supabase);
-  const bracketLockAt = predictWinnerBracketLockAt();
+  const bracketLockAt = await predictWinnerBracketLockAt(supabase);
   const bracketActuals = await computeBracketActuals(supabase);
   const bracketPoints = scoreBracket(pick?.bracket ?? null, bracketActuals);
   const aliveTeams = await computeAliveTeams(supabase);
@@ -139,7 +139,7 @@ export async function POST(req: NextRequest) {
 
   const supabase = getSupabaseAdmin();
   const awardsLocked = await isPredictWinnerLocked(supabase);
-  const bracketLocked = isPredictWinnerBracketLocked();
+  const bracketLocked = await isPredictWinnerBracketLocked(supabase);
 
   if (awardsLocked && bracketLocked) {
     return NextResponse.json(

@@ -52,16 +52,42 @@ export async function isPredictWinnerLocked(
  * PREDICT_WINNER_BRACKET_LOCK_AT env var, or (until the semis are scheduled)
  * stays open.
  */
-export function predictWinnerBracketLockAt(): Date {
-  // Finalists / Winner / Third lock 15 minutes before the first semi-final:
-  // 14 Jul 2026, 8:45 PM CEST (15 min before a 9:00 PM CEST kickoff).
-  // Override with PREDICT_WINNER_BRACKET_LOCK_AT if the kickoff time differs.
+export async function predictWinnerBracketLockAt(
+  supabase: ReturnType<typeof getSupabaseAdmin>
+): Promise<Date> {
+  const { data } = await supabase
+    .from("matches")
+    .select("home_team, away_team, kickoff_at");
+
+  // Finalists / Winner / Third lock 15 minutes before the Norway vs England
+  // match (in either home/away order). Falls back to 14 Jul 8:45 PM CEST, or
+  // the PREDICT_WINNER_BRACKET_LOCK_AT env var, if that fixture isn't synced.
+  const kickoff = (data ?? [])
+    .filter((m) => {
+      const a = (m.home_team ?? "").toLowerCase();
+      const b = (m.away_team ?? "").toLowerCase();
+      return (
+        (a === "norway" && b === "england") ||
+        (a === "england" && b === "norway")
+      );
+    })
+    .map((m) => new Date(m.kickoff_at).getTime())
+    .filter((t) => !Number.isNaN(t))
+    .sort((x, y) => y - x)[0];
+
+  if (kickoff) {
+    return new Date(kickoff - PREDICT_WINNER_LOCK_MINUTES * 60 * 1000);
+  }
+
   const env = process.env.PREDICT_WINNER_BRACKET_LOCK_AT;
   return env ? new Date(env) : new Date("2026-07-14T20:45:00+02:00");
 }
 
-export function isPredictWinnerBracketLocked(now: number = Date.now()): boolean {
-  return now >= predictWinnerBracketLockAt().getTime();
+export async function isPredictWinnerBracketLocked(
+  supabase: ReturnType<typeof getSupabaseAdmin>,
+  now: number = Date.now()
+): Promise<boolean> {
+  return now >= (await predictWinnerBracketLockAt(supabase)).getTime();
 }
 
 /** Normalises a name for forgiving comparison (case/space/accent-insensitive). */
